@@ -1,0 +1,250 @@
+# encoding: utf-8
+# frozen_string_literal: true
+require 'bundler/setup'
+require 'extractor'
+
+RSpec.describe "Extraction" do
+  before(:all) do
+    @extractor = Uts58::Extractor.new
+  end
+  def extract_urls(text)
+    @extractor.extract_urls_with_indices(text)
+  end
+
+  it "does not accept an invalid domain" do
+    expect(extract_urls("a test.x b").count).to eq(0)
+    # hm... PublicSuffix accepts .invalid as a valid TLD.
+    expect(extract_urls("a test.invalid b").count).to eq(0)
+  end
+
+  it "accepts blogspot.com as a domain" do
+    expect(extract_urls("a blogspot.com b").count).to eq(1)
+  end
+
+  it "does not regard .com has a domain" do
+    expect(extract_urls("a com b").count).to eq(0)
+  end
+
+  it "handles ports sensibly" do
+    x = extract_urls("a example.com:443 b");
+    expect(x.count).to eq(1)
+    expect(x.first[:indices]).to eq([2, 17])
+  end
+
+  it "includes a path" do
+    x = extract_urls("a example.com/123 b");
+    expect(x.count).to eq(1)
+    expect(x.first[:indices]).to eq([2, 17])
+  end
+
+  it "includes a query" do
+    x = extract_urls("a example.com?123 b");
+    expect(x.count).to eq(1)
+    expect(x.first[:indices]).to eq([2, 17])
+  end
+
+  it "includes a fragment" do
+    x = extract_urls("a example.com#123 b");
+    expect(x.count).to eq(1)
+    expect(x.first[:indices]).to eq([2, 17])
+  end
+
+  it "includes a giant long thing" do
+    x = extract_urls("a example.com/123?123#123 b");
+    expect(x.count).to eq(1)
+    expect(x.first[:indices]).to eq([2, 25])
+  end
+
+  it "finishes before trailing parens" do
+    x = extract_urls("a (example.com/123?123#123) b");
+    expect(x.first[:indices]).to eq([3, 26])
+    x = extract_urls("a (example.com/123?123#(123)) b")
+    expect(x.first[:indices]).to eq([3,28])
+  end
+
+  it "is clever about full stops" do
+    x = extract_urls("a example.com/123.html b");
+    expect(x.first[:indices]).to eq([2, 22])
+    x = extract_urls("a example.com/123. HTML is great");
+    expect(x.first[:indices]).to eq([2,17])
+    x = extract_urls("a example.com/123... HTML is so great");
+    expect(x.first[:indices]).to eq([2,17])
+    x = extract_urls("a example.com/123.");
+    expect(x.first[:indices]).to eq([2,17])
+  end
+
+  it "decodes a-labels in the resulting URL" do
+    x = extract_urls("xn-----ctdbabcfhu9c2b9l1acccr4c.xn--mgbah1a3hjkrd")
+    expect(x.count).to eq(1)
+    expect(x.first[:url]).to eq("https://تجربة-القبول-الشامل.موريتانيا")
+  end
+
+  uasg004domains = [
+    #, 1, ASCII.ASCII, new-long, Long ASCII
+    "universal-acceptance-test.international",
+    #, 2, ASCII.ASCII, new-short, Short ASCII
+    "universal-acceptance-test.icu",
+    #, 3, IDN.IDN, RTL, Arabic
+    "تجربة-القبول-الشامل.موريتانيا",
+    #, 4, IDN.IDN, , Armenian
+    "համընդհանուր-ընկալում-թեստ.հայ",
+    #, 5, IDN.IDN, , Bengali Bangla
+    "সর্বজনীন-স্বীকৃতির-পরীক্ষা.ভারত",
+    #, 6, IDN.IDN, , Cyrillic
+    "универсальное-принятие-тест.москва",
+    #, 7, IDN.IDN, , Devanagari
+    "सार्वभौमिक-स्वीकृति-परीक्षण.संगठन",
+    #, 8, IDN.IDN, , Georgian
+    "უნივერსალური-თავსობადობის-ტესტი.გე",
+    #, 9, IDN.IDN, , Greek
+    "καθολική-αποδοχή-δοκιμή.ευ",
+    #, 10, IDN.IDN, , Gujarati
+    "સાર્વત્રિક-સ્વીકૃતિ-પરીક્ષણ.ભારત",
+    #, 11, IDN.IDN, , Gurmukhi
+    "ਸਰਵਵਿਆਪਕ-ਪ੍ਰਵਾਨਗੀ-ਪਰਖ.ਭਾਰਤ",
+    #, 12, IDN.IDN, , Hangul
+    "다국어도메인이용환경테스트.한국",
+    #, 13, IDN.IDN, RTL, Hebrew
+    "מבחן-קבלה-אוניברסלי.קום",
+    #, 14, IDN.IDN, , Hiragana
+    "どこでもつかえる.みんな",
+    #, 15, IDN.IDN, , Kannada
+    "ಸಾರ್ವತ್ರಿಕ-ಸ್ವೀಕಾರಾರ್ಹತೆ-ಪರೀಕ್ಷೆ.ಭಾರತ",
+    #, 16, IDN.IDN, , Katakana
+    "ユニバーサルアクセプタンス.クラウド",
+    #, 17, IDN.IDN, , Lao
+    "ສາກົນ-ການຍອມຮັບ-ທົດລອງ.ລາວ",
+    #, 19, IDN.IDN, , Malayalam
+    "സാർവത്രിക-സ്വീകാര്യതാ-പരിശോധന.ഭാരതം",
+    #, 20, IDN.IDN, , Oriya
+    "ଯୁନିଭରସାଲ-ଏକସେପ୍ଟନ୍ସ-ଟେଷ୍ଟ.ଭାରତ",
+    #, 21, IDN.IDN, , Sinhala
+    "විශ්ව-සම්මුති-පිරික්සුම.ලංකා",
+    #, 22, IDN.IDN, , Tamil
+    "பொது-ஏற்பு-சோதனை.சிங்கப்பூர்",
+    #, 23, IDN.IDN, , Telugu
+    "యూనివర్సల్-ఆమోదం-పరీక్ష.భారత్",
+    #, 24, IDN.IDN, , Thai
+    "ยูเอทดสอบ.ไทย",
+    #, 25, IDN.IDN, , Simplified Chinese
+    "普遍适用测试.我爱你",
+    #, 26, IDN.IDN, , Traditional Chinese
+    "普遍適用測試.台灣",
+    #, 27, IDN.ASCII, , Ethiopic
+    "ሁለንአቀፍ-ተቀባይነት-ሙከራ.com",
+    #, 28, IDN.ASCII, , Khmer
+    "ការសាកល្បងទទួលយកជាអន្តរជាតិ.com",
+    #, 29, IDN.ASCII, , Myanmar
+    "အလုံးစုံလက်ခံမှုစမ်းသပ်ချက်.com",
+    #, 30, IDN.ASCII, RTL, Thaana
+    "ދުނިޔެ-ގަބޫލުކުރާ-ޓެސްޓު.com",
+    #, 63, ASCII.IDN, RTL, Hebrew
+    "universal-acceptance-test.קום",
+    #, 64, IDN.ASCII, , Latin
+    "épreuve-acceptation-universelle.org",
+  ]
+  uasg004domains.each do |url|
+    it "can pick UASG004 test domain #{url} out of text" do
+      more = "Lorem ipsum #{url} dolor sit amet"
+      x = extract_urls(more)
+      expect(x.count).to eq(1)
+      expect(x.first[:url]).to eq("https://#{url}")
+    end
+  end
+
+  it "can pick UASG004 test ཡོངས་ཁྱབ་ངོས་ལེན་བརྟག་དཔྱད.com out of text" do
+    x = extract_urls("Lorem ipsum ཡོངས་ཁྱབ་ངོས་ལེན་བརྟག་དཔྱད.com dolor sit amet")
+    expect(x.map{|y| y[:url]}).to include("https://ཡོངས་ཁྱབ་ངོས་ལེན་བརྟག་དཔྱད.com")
+  end
+
+  uasg004misc = [
+    #, 18, IDN.IDN, , Latin
+    "Universales-Akzeptanz-Test.vermögensberatung",
+    #, 65, IDN.ASCII, not in NFC normalization form, Latin
+    "épreuve-acceptation-universelle.org",
+    #, 66, IDN.IDN, Ideographic Full Stop, Simplified Chinese
+    "普遍适用测试。我爱你",
+    #, 67, IDN.IDN, RTL; A-label.U-label, Arabic
+    # "موريتانيا.xn-----ctdbabcfhu9c2b9l1acccr4c", TLD not delegated as of 2025
+    #, 68, IDN.IDN, RTL; U-label.A-label, Arabic
+    "تجربة-القبول-الشامل.xn--mgbah1a3hjkrd",
+    #, 69, IDN.IDN, RTL; A-label.A-label, Arabic
+    "xn-----ctdbabcfhu9c2b9l1acccr4c.xn--mgbah1a3hjkrd",
+    #, 70, ASCII.ASCII/Unicode, , Simplified Chinese
+    "universal-acceptance-test.icu/测试",
+    #, 71, IDN.IDN/Unicode, , Simplified Chinese
+    "普遍适用测试.我爱你/测试",
+    #, 72, IDN.IDN/Unicode, RTL, Arabic
+    "تجربة-القبول-الشامل.موريتانيا/تجربة"
+  ]
+  uasg004misc.each do |url|
+    it "can pick UASG004 test #{url} out of text" do
+      more = "Lorem ipsum #{url} dolor sit amet"
+      x = extract_urls(more)
+      expect(x.count).to eq(1)
+    end
+  end
+
+  # 31 is special; extract_urls will pick several partly overlapping
+  # substrings. Selecting the longest is a separate task
+  it "can pick UASG004 test ཡོངས་ཁྱབ་ངོས་ལེན་བརྟག་དཔྱད.com out of text" do
+    x = extract_urls("Lorem ipsum ཡོངས་ཁྱབ་ངོས་ལེན་བརྟག་དཔྱད.com dolor sit amet")
+    expect(x.map{|y| y[:url]}).to include("https://ཡོངས་ཁྱབ་ངོས་ལེན་བརྟག་དཔྱད.com")
+  end
+
+  # what a joy that UTS58 doesn't consider email addresses; that way
+  # this code doesn't need to include test UASG004 test case number
+  # 69, and I don't need to look at that abomination.
+
+  urls = [ "example.com" ]
+  urls.each do |url|
+    it "can pick a plain domain" do
+      more = "Lorem ipsum #{url} dolor sit amet"
+      expect(extract_urls(more).count).to eq(1)
+    end
+  end
+
+  # based on a comment in twitter-text
+  it "can pick Wikipedia articles from text" do
+    expect(extract_urls("blah en.wikipedia.org/wiki/The_Lovemakers_(film) blah").count).to eq(1)
+  end
+
+  # based on a test in php-autolink
+  it "can pick Wikipedia articles from text" do
+    expect(extract_urls("blah example.com/?foo[1]=a&amp;foo[2]=b blah").first[:url]).to eq("https://example.com/?foo[1]=a&amp;foo[2]=b")
+  end
+
+  # based on a comment in twitter-text
+  [
+    "comoyo.com/play/S(123)",
+    "example.com/knutsen_ludvigsen/ver(k)ste(d)/brilleslange.mp3",
+    "example.com/Bob_Marley/Rastaman_Vibration/11_Jah_Live_(originally_issued_as_Island_Single_(WIP_6265))_(bonus_track)"
+  ].each do |url|
+    it "can handle complicated song player URLs" do
+      more = "Lorem ipsum #{url} dolor sit amet"
+      expect(extract_urls(more).first[:url]).to eq("https://#{url}")
+    end
+  end
+
+  # based on tests in rails-autolink
+  [ "business.timesonline.co.uk/article/0,,9065-2473189,00.html",
+    "www.mail-archive.com/ruby-talk@ruby-lang.org/",
+    "tools.ietf.org/html/rfc3986",
+    "www.amazon.com/Testing-Equal-Sign-In-Path/ref=pd_bbs_sr_1?ie=UTF8&s=books&qid=1198861734&sr=8-1",
+    "www.google.com/doku.php?id=gps:resource:scs:start",
+    "maps.google.co.uk/maps?f=q&q=the+london+eye&ie=UTF8&ll=51.503373,-0.11939&spn=0.007052,0.012767&z=16&iwloc=A",
+    "www.rubyonrails.com/foo.cgi?trailing_hyphen=value-",
+    "www.rubyonrails.com/foo.cgi?trailing_forward_slash=value/"
+  ].each do |url|
+    [ url, "https://#{url}" ].each do |u|
+      it "can pick #{u} from text" do
+        expect(extract_urls("blah #{u} blah").first[:url]).to eq("https://#{url}")
+      end
+    end
+  end
+
+  # rails-autolink contains a timeout test... let's try harder!
+  it "should not be led astray by a LONG link" do
+    expect(extract_urls("blah #{"example."*100000}com blah").count).to eq(0)
+  end
+end
