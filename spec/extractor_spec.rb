@@ -316,4 +316,56 @@ RSpec.describe "Extraction" do
     expect(x.count).to eq(1)
     expect(x.first[:url]).to eq("https://example.com/path")
   end
+
+  describe "Extractor#extract_urls" do
+    it "returns only the URL strings" do
+      expect(@extractor.extract_urls("a blogspot.com b example.com c"))
+        .to eq(["https://blogspot.com", "https://example.com"])
+    end
+  end
+
+  describe "Extractor#remove_overlapping_entities" do
+    it "drops later entries that start inside an earlier entry's span" do
+      entities = [
+        { url: "a", indices: [0, 10] },
+        { url: "b", indices: [5, 15] },  # overlaps a
+        { url: "c", indices: [10, 20] }, # touches a but doesn't overlap
+        { url: "d", indices: [12, 18] }, # overlaps c
+      ]
+      expect(@extractor.remove_overlapping_entities(entities).map { |e| e[:url] })
+        .to eq(["a", "c"])
+    end
+
+    it "is a no-op on an empty or already-disjoint list" do
+      expect(@extractor.remove_overlapping_entities([])).to eq([])
+      disjoint = [{ url: "a", indices: [0, 5] }, { url: "b", indices: [10, 15] }]
+      expect(@extractor.remove_overlapping_entities(disjoint)).to eq(disjoint)
+    end
+  end
+
+  describe "module-level wrappers" do
+    it "exposes Uts58.extract_urls_with_indices" do
+      expect(Uts58.extract_urls_with_indices("see example.com here").first[:url])
+        .to eq("https://example.com")
+    end
+
+    it "exposes Uts58.extract_urls" do
+      expect(Uts58.extract_urls("see example.com here"))
+        .to eq(["https://example.com"])
+    end
+
+    # The Tibetan tseg (U+0F0B) acts as a label separator inside the
+    # domain, so the raw extractor finds the full domain plus several
+    # shorter suffixes. The wrapper should keep only the longest one.
+    it "strips overlapping candidates and keeps the longest match" do
+      tibetan = "ཡོངས་ཁྱབ་ངོས་ལེན་བརྟག་དཔྱད.com"
+      text = "Lorem ipsum #{tibetan} dolor sit amet"
+      raw = Uts58::Extractor.new.extract_urls_with_indices(text)
+      expect(raw.count).to be > 1
+
+      wrapped = Uts58.extract_urls_with_indices(text)
+      expect(wrapped.count).to eq(1)
+      expect(wrapped.first[:url]).to eq("https://#{tibetan}")
+    end
+  end
 end
