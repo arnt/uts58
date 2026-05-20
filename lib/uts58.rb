@@ -1,5 +1,8 @@
 # encoding: utf-8
-require 'idn'
+# frozen_string_literal: true
 
-class Uts58
+module Uts58
+  VERSION = "0.0.1"
 end
+
+require_relative "uts58/extractor"

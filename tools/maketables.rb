@@ -1,5 +1,4 @@
 #!/bin/ruby
-require "byebug"
 
 print "    OPENERS = {\n"
 File.readlines("/tmp/link-paired-opener", chomp: true).each do |line|

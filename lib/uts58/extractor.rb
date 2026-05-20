@@ -1,7 +1,7 @@
 # encoding: utf-8
 require 'simpleidn'
 require 'public_suffix'
-require 'constants'
+require_relative 'constants'
 
 module Uts58
   class Extractor
@@ -21,7 +21,7 @@ module Uts58
 
     def extract_urls_with_indices(text, options = {})
       result = []
-      text.to_enum(:scan,/(?<![-\p{Alnum}\p{M}.])(?=\p{Alnum}[-\p{L}\p{N}\p{M}\u00DF\u03C2\u06FD\u06FE\u0F0B\u3007]*[\.:。])/).map{Regexp.last_match}.each do |match|
+      text.to_enum(:scan,/(?<![-\p{Alnum}\p{M}.\/])(?=\p{Alnum}[-\p{L}\p{N}\p{M}\u00DF\u03C2\u06FD\u06FE\u0F0B\u3007]*[\.:。])/).map{Regexp.last_match}.each do |match|
         # get rid of a leading protocol.
         s = match.post_match
         if /^(https?:\/\/)/i.match(s)
@@ -44,9 +44,13 @@ module Uts58
               # the question is how much. there may be a trailing
               # port, then a path, then a query, finally a fragment.
               rest = prefix.post_match
-              # port
-              port = /^:\d+/.match(rest)
-              rest = port.post_match if port
+              # a port number must be 1..65535
+              port = /^:(\d+)/.match(rest)
+              if port
+                n = port[1].to_i
+                next if n < 1 || n > 65535
+                rest = port.post_match
+              end
               # path
               rest = skip_component(rest, PATH_CLOSERS) while rest[0] == "/"
               # query

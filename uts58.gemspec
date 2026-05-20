@@ -9,7 +9,7 @@ Gem::Specification.new do |spec|
   spec.summary       = %q{Ruby implementation of Unicode UTS58}
   spec.description   = %q{Ruby code to detect links in text, as specified by UTS58}
   spec.homepage      = "https://github.com/arnt/uts58"
-  spec.required_ruby_version = Gem::Requirement.new(">= 2.7.3")
+  spec.required_ruby_version = Gem::Requirement.new(">= 3.1")
   spec.licenses       = ["BSD-2-Clause"]
 
   spec.metadata["homepage_uri"] = spec.homepage
@@ -26,4 +26,5 @@ Gem::Specification.new do |spec|
   spec.add_dependency "simpleidn"
   spec.add_development_dependency "byebug"
   spec.add_development_dependency "diff-lcs", '~> 1.5.1'
+  spec.add_development_dependency "rspec", "~> 3.0"
 end

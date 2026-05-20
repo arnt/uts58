@@ -1,5 +1,4 @@
 # encoding: utf-8
-require 'byebug'
 
 module Uts58
   class Constants

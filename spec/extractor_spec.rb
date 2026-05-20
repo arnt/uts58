@@ -1,7 +1,7 @@
 # encoding: utf-8
 # frozen_string_literal: true
 require 'bundler/setup'
-require 'extractor'
+require 'uts58'
 
 RSpec.describe "Extraction" do
   before(:all) do
@@ -246,5 +246,74 @@ RSpec.describe "Extraction" do
   # rails-autolink contains a timeout test... let's try harder!
   it "should not be led astray by a LONG link" do
     expect(extract_urls("blah #{"example."*100000}com blah").count).to eq(0)
+  end
+
+  # The following block of tests is ported from the Java reference
+  # implementation in ICU (com.ibm.icu.text.LinkDetector).
+
+  it "handles empty input" do
+    expect(extract_urls("").count).to eq(0)
+  end
+
+  it "finds two non-overlapping URLs in one string" do
+    x = extract_urls("a blogspot.com b example.com c")
+    expect(x.count).to eq(2)
+    expect(x.map { |r| r[:url] }).to eq(["https://blogspot.com", "https://example.com"])
+  end
+
+  it "does not detect a second link inside an embedded URL" do
+    url = "https://archive.org/20260225/https://example.com/example"
+    x = extract_urls("foo #{url} bar")
+    expect(x.count).to eq(1)
+    expect(x.first[:url]).to eq(url)
+  end
+
+  # UTS58 only recognises http and https. ftp:, ssh:, sftp:, ldap:
+  # etc. must not produce a result for the embedded hostname.
+  ["ftp://ftp.archaic.example.com",
+   "ssh://server.example.com",
+   "sftp://files.example.com",
+   "ldap://directory.example.com"].each do |u|
+    it "does not linkify the host inside an unsupported scheme: #{u}" do
+      expect(extract_urls("foo #{u} bar").count).to eq(0)
+    end
+  end
+
+  it "preserves http:// when the input has it" do
+    x = extract_urls("foo http://example.com bar")
+    expect(x.count).to eq(1)
+    expect(x.first[:url]).to eq("http://example.com")
+  end
+
+  it "rejects port 0" do
+    expect(extract_urls("a example.com:0 b").count).to eq(0)
+  end
+
+  it "rejects ports above 65535" do
+    expect(extract_urls("a example.com:100000 b").count).to eq(0)
+  end
+
+  it "accepts low and mid-range ports" do
+    expect(extract_urls("a example.com:1 b").count).to eq(1)
+    expect(extract_urls("a example.com:1000 b").count).to eq(1)
+    expect(extract_urls("a example.com:65535 b").count).to eq(1)
+  end
+
+  it "terminates at a surplus closing bracket with no opener on the stack" do
+    x = extract_urls("a example.com/foo) b")
+    expect(x.count).to eq(1)
+    expect(x.first[:url]).to eq("https://example.com/foo")
+  end
+
+  it "terminates at a mismatched closing bracket" do
+    x = extract_urls("a example.com/foo(bar] b")
+    expect(x.count).to eq(1)
+    expect(x.first[:url]).to eq("https://example.com/foo(bar")
+  end
+
+  it "treats surrounding square brackets as terminators" do
+    x = extract_urls("a [example.com/path] b")
+    expect(x.count).to eq(1)
+    expect(x.first[:url]).to eq("https://example.com/path")
   end
 end
