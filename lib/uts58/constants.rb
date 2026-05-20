@@ -1,7 +1,7 @@
-# encoding: utf-8
+# frozen_string_literal: true
 
 module Uts58
-  class Constants
+  module Constants
     # the large next bit was generated using tools/maketables.rb
     OPENERS = {
       0x0029 => 0x0028, # “)” RIGHT PARENTHESIS 🡆  “(” LEFT PARENTHESIS

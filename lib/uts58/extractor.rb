@@ -1,4 +1,4 @@
-# encoding: utf-8
+# frozen_string_literal: true
 require 'simpleidn'
 require 'public_suffix'
 require_relative 'constants'
@@ -47,7 +47,7 @@ module Uts58
         # look for the prefix that might be a hostname or an IDN.
         # this is a somewhat sloppy match, with a few false positives.
         prefix = /^([-\p{L}\p{N}\p{M}\u00DF\u03C2\u06FD\u06FE\u0F0B\u3007]+[\.。]){1,4}[-\p{L}\p{N}\p{M}]+(?![-\p{L}\p{N}\p{M}])/.match(s)
-        if prefix && prefix.match(0).length < 254 then
+        if prefix && prefix[0].length < 254
           hn = SimpleIDN.to_unicode(prefix.match(0).gsub(/。/, "."))
           begin
             about = PublicSuffix.parse(hn,

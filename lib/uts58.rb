@@ -1,4 +1,3 @@
-# encoding: utf-8
 # frozen_string_literal: true
 
 # Ruby implementation of {UTS #58}[https://www.unicode.org/reports/tr58/],
