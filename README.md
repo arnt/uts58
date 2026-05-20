@@ -8,6 +8,8 @@ This covers the **web link** half of UTS #58 only. Email address recognition
 is not implemented here since at the moment it's unclear whether that's
 desirable on generally visible web pages.
 
+Tested extensively on relevant OSes: [![CI](https://github.com/arnt/uts58/actions/workflows/ci.yml/badge.svg)](https://github.com/arnt/uts58/actions/workflows/ci.yml)
+
 ## Install
 
 ```ruby
