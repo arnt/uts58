@@ -9,13 +9,32 @@ module Uts58
   # twitter-text consumers (notably Mastodon) can swap one for the
   # other.
   #
-  # Instances hold no state as of this version; if you don't have a
-  # reason to keep one around, the module-level Uts58.extract_urls and
-  # Uts58.extract_urls_with_indices shortcuts are simpler.
+  # Instances carry only optional configuration (see #max_length=); if
+  # you don't need to set anything, the module-level
+  # Uts58.extract_urls and Uts58.extract_urls_with_indices shortcuts
+  # are simpler.
   class Extractor
     PATH_CLOSERS = [35, 47, 63]
     QUERY_CLOSERS = [35] # how about &?
     FRAGMENT_CLOSERS = []
+
+    # Maximum allowed length of the matched text, in input codepoints.
+    # Matches whose input span exceeds this are dropped from the result
+    # of #extract_urls_with_indices.
+    #
+    # "Matched text" means the substring that came out of +text+ — for
+    # example 11 for <tt>"example.com"</tt>. The returned +:url+ can
+    # be both longer and shorter, most commonly when a missing scheme
+    # is filled in ( +"https://example.com"+ is 19 codepoints). The
+    # limit is measured against the input, not against the returned
+    # URL.
+    #
+    # Default is +nil+, meaning no limit.
+    attr_accessor :max_length
+
+    def initialize
+      @max_length = nil
+    end
 
     # Returns every URL found in +text+ as a list of hashes:
     #
@@ -72,6 +91,7 @@ module Uts58
               rest = skip_component(rest, FRAGMENT_CLOSERS) if rest[0] == "#"
               rest_length = prefix.post_match.length - rest.length
               match_length = match.post_match.length - rest.length
+              next if @max_length && match_length > @max_length
               result << {
                 url: "#{proto}#{hn}#{prefix.post_match[...rest_length]}",
                 indices: [match.begin(0), match.begin(0) + match_length]

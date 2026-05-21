@@ -324,6 +324,49 @@ RSpec.describe "Extraction" do
     end
   end
 
+  describe "Extractor#max_length" do
+    it "defaults to nil so nothing is filtered out" do
+      e = Uts58::Extractor.new
+      expect(e.max_length).to be_nil
+      expect(e.extract_urls("foo example.com bar").count).to eq(1)
+    end
+
+    it "drops matches whose input span exceeds the limit" do
+      e = Uts58::Extractor.new
+      e.max_length = 10  # "example.com" is 11 codepoints, so over the limit
+      expect(e.extract_urls("foo example.com bar")).to eq([])
+    end
+
+    it "keeps matches whose input span equals the limit" do
+      e = Uts58::Extractor.new
+      e.max_length = "example.com".length
+      expect(e.extract_urls("foo example.com bar")).to eq(["https://example.com"])
+    end
+
+    # The limit is measured against the matched substring of the
+    # input, not against the returned URL (which is often longer
+    # because the scheme is filled in).
+    it "measures the input span, not the returned URL" do
+      e = Uts58::Extractor.new
+      e.max_length = 11  # length of "example.com"; URL is "https://example.com" (19)
+      expect(e.extract_urls("foo example.com bar")).to eq(["https://example.com"])
+    end
+
+    it "still drops a scheme-bearing match whose input span exceeds the limit" do
+      e = Uts58::Extractor.new
+      # "https://example.com" is 19 input codepoints; URL is also 19.
+      e.max_length = 15
+      expect(e.extract_urls("foo https://example.com bar")).to eq([])
+    end
+
+    it "filters per-match, keeping shorter ones in a mixed input" do
+      e = Uts58::Extractor.new
+      e.max_length = 12  # keeps "blogspot.com" (12), drops "universal-acceptance-test.icu" (29)
+      x = e.extract_urls("see blogspot.com and universal-acceptance-test.icu please")
+      expect(x).to eq(["https://blogspot.com"])
+    end
+  end
+
   describe "Extractor#remove_overlapping_entities" do
     it "drops later entries that start inside an earlier entry's span" do
       entities = [
