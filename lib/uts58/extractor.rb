@@ -62,7 +62,7 @@ module Uts58
         # nothing precedes it, and the actual link begins three
         # codepoints later.
         s = match.post_match
-        scheme_match = /^([\p{L}\p{M}\p{N}]*?)(https?:\/\/)/i.match(s)
+        scheme_match = /^([\p{Han}\p{Hiragana}\p{Katakana}\p{Hangul}\p{Thai}\p{Lao}\p{Khmer}\p{Myanmar}]*?)(https?:\/\/)/i.match(s)
         if scheme_match
           scheme_offset = scheme_match[1].length
           proto = scheme_match[2]
