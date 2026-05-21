@@ -311,6 +311,12 @@ RSpec.describe "Extraction" do
     expect(x.first[:url]).to eq("https://example.com/foo(bar")
   end
 
+  it "keeps the path when the input ends with one" do
+    x = extract_urls("Visit https://example.com/example")
+    expect(x.count).to eq(1)
+    expect(x.first[:url]).to eq("https://example.com/example")
+  end
+
   it "treats surrounding square brackets as terminators" do
     x = extract_urls("a [example.com/path] b")
     expect(x.count).to eq(1)

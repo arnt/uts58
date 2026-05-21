@@ -184,6 +184,9 @@ module Uts58
           # it's a letter or something like that
         end
       end
+      # Input ran out before any terminator did: the whole component
+      # belongs to the URL, so there is nothing left over.
+      ""
     end
   end
 end
