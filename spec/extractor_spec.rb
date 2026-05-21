@@ -311,6 +311,13 @@ RSpec.describe "Extraction" do
     expect(x.first[:url]).to eq("https://example.com/foo(bar")
   end
 
+  it "finds an http:// link directly preceded by non-Latin letters" do
+    x = extract_urls("テストhttp://example.com/日本語")
+    expect(x.count).to eq(1)
+    expect(x.first[:url]).to eq("http://example.com/日本語")
+    expect(x.first[:indices]).to eq([3, 25])
+  end
+
   it "keeps the path when the input ends with one" do
     x = extract_urls("Visit https://example.com/example")
     expect(x.count).to eq(1)

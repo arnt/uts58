@@ -55,12 +55,20 @@ module Uts58
     def extract_urls_with_indices(text, options = {})
       result = []
       text.to_enum(:scan,/(?<![-\p{Alnum}\p{M}.\/])(?=\p{Alnum}[-\p{L}\p{N}\p{M}\u00DF\u03C2\u06FD\u06FE\u0F0B\u3007]*[\.:。])/).map{Regexp.last_match}.each do |match|
-        # get rid of a leading protocol.
+        # get rid of a leading protocol. We also tolerate letter/mark/number
+        # characters between the trigger and the scheme, so that input
+        # like "テストhttp://example.com" attaches the scheme correctly:
+        # the trigger fires at offset 0 (the start of "テスト") because
+        # nothing precedes it, and the actual link begins three
+        # codepoints later.
         s = match.post_match
-        if /^(https?:\/\/)/i.match(s)
-          proto = Regexp.last_match(1)
-          s = s.sub( /^https?:\/\//i, "" )
+        scheme_match = /^([\p{L}\p{M}\p{N}]*?)(https?:\/\/)/i.match(s)
+        if scheme_match
+          scheme_offset = scheme_match[1].length
+          proto = scheme_match[2]
+          s = scheme_match.post_match
         else
+          scheme_offset = 0
           proto = "https://"
         end
         # look for the prefix that might be a hostname or an IDN.
@@ -90,11 +98,12 @@ module Uts58
               rest = skip_component(rest, QUERY_CLOSERS) if rest[0] == '?'
               rest = skip_component(rest, FRAGMENT_CLOSERS) if rest[0] == "#"
               rest_length = prefix.post_match.length - rest.length
-              match_length = match.post_match.length - rest.length
+              match_length = match.post_match.length - rest.length - scheme_offset
               next if @max_length && match_length > @max_length
+              start = match.begin(0) + scheme_offset
               result << {
                 url: "#{proto}#{hn}#{prefix.post_match[...rest_length]}",
-                indices: [match.begin(0), match.begin(0) + match_length]
+                indices: [start, start + match_length]
               }
             end
           rescue PublicSuffix::DomainInvalid
