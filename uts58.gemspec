@@ -2,7 +2,7 @@
 
 Gem::Specification.new do |spec|
   spec.name          = "uts58"
-  spec.version       = "0.1.0"
+  spec.version       = "0.1.1"
   spec.authors       = ["Arnt Gulbrandsen"]
   spec.email         = ["arnt@gulbrandsen.priv.no"]
 
@@ -19,9 +19,9 @@ Gem::Specification.new do |spec|
   end
   spec.require_paths = ["lib"]
 
-  spec.add_dependency "public_suffix", "~> 6.0"
+  spec.add_dependency "public_suffix", "~> 7.0"
   spec.add_dependency "simpleidn", "~> 0.2"
-  spec.add_development_dependency "byebug", "~> 12.0"
-  spec.add_development_dependency "diff-lcs", '~> 1.5.1'
+  spec.add_development_dependency "byebug", "~> 13.0"
+  spec.add_development_dependency "diff-lcs", "~> 1.5"
   spec.add_development_dependency "rspec", "~> 3.0"
 end

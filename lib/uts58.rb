@@ -17,7 +17,7 @@
 #   Uts58.extract_urls_with_indices("see example.com here")
 #   # => [{ url: "https://example.com", indices: [4, 15] }]
 module Uts58
-  VERSION = "0.1.0"
+  VERSION = "0.1.1"
 
   class << self
     # Like Uts58::Extractor#extract_urls_with_indices, but with
