@@ -9,7 +9,7 @@
 # any characters in the input, the wrappers keep the earlier one and
 # drop the rest. Use Uts58::Extractor directly if you want the
 # raw, possibly-overlapping list (e.g. to merge with hashtag/mention
-# extractors before resolving overlap yourself).
+# extractors before resolving overlap).
 #
 #   Uts58.extract_urls("see example.com here")
 #   # => ["https://example.com"]
@@ -17,7 +17,7 @@
 #   Uts58.extract_urls_with_indices("see example.com here")
 #   # => [{ url: "https://example.com", indices: [4, 15] }]
 module Uts58
-  VERSION = "0.1.1"
+  VERSION = "0.2.0"
 
   class << self
     # Like Uts58::Extractor#extract_urls_with_indices, but with
