@@ -21,7 +21,7 @@ Gem::Specification.new do |spec|
 
   spec.add_dependency "public_suffix", ">= 6.0", "< 8"
   spec.add_dependency "simpleidn", "~> 0.2"
-  spec.add_development_dependency "byebug", "~> 13.0"
+  spec.add_development_dependency "byebug", ">= 12.0", "< 14"
   spec.add_development_dependency "diff-lcs", "~> 1.5"
   spec.add_development_dependency "rspec", "~> 3.0"
 end
