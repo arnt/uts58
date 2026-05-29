@@ -399,6 +399,166 @@ RSpec.describe "Extraction" do
     end
   end
 
+  describe "Extractor#extract_email_addresses_with_indices" do
+    def extract_emails(text)
+      @extractor.extract_email_addresses_with_indices(text)
+    end
+
+    # Table 5-1 from UTS #58: positive cases.
+    it "extracts a plain ASCII address" do
+      x = extract_emails("Contact abcd@example.com")
+      expect(x.count).to eq(1)
+      expect(x.first[:email]).to eq("abcd@example.com")
+      expect(x.first[:url]).to eq("mailto:abcd@example.com")
+      expect(x.first[:indices]).to eq([8, 24])
+    end
+
+    it "includes a medial dot in the local-part" do
+      x = extract_emails("Contact x.abcd@example.com")
+      expect(x.count).to eq(1)
+      expect(x.first[:email]).to eq("x.abcd@example.com")
+    end
+
+    it "accepts a non-ASCII local-part" do
+      x = extract_emails("Contact አርበርቶ.አርበርቶ@example.com")
+      expect(x.count).to eq(1)
+      expect(x.first[:email]).to eq("አርበርቶ.አርበርቶ@example.com")
+    end
+
+    it "accepts the Greek example from UTS #58 §5.1" do
+      x = extract_emails("write to σωκράτης@example.com")
+      expect(x.count).to eq(1)
+      expect(x.first[:email]).to eq("σωκράτης@example.com")
+    end
+
+    it "handles a mix of ASCII/non-ASCII combinations" do
+      [
+        "grå@grå.org",
+        "info@grå.org",
+        "arnt@grå.org",
+        "阿Q@例子.中国",
+        "例子@例子.中国",
+        "उदाहरण@उदाहरण.भारत",
+        "gøril@example.com",
+      ].each do |addr|
+        x = extract_emails("hi #{addr} there")
+        expect(x.count).to eq(1), "expected to extract #{addr}"
+        expect(x.first[:email]).to eq(addr)
+      end
+    end
+
+    # Table 5-1 from UTS #58: negative cases.
+    it "rejects an address with no valid domain" do
+      expect(extract_emails("Contact x@example.😎").count).to eq(0)
+    end
+
+    it "rejects an address with no local-part" do
+      expect(extract_emails("Contact @example.com").count).to eq(0)
+    end
+
+    it "rejects a local-part that ends with a dot" do
+      expect(extract_emails("Contact john.@example.com").count).to eq(0)
+    end
+
+    it "rejects a local-part with consecutive dots" do
+      expect(extract_emails("Contact john..doe@example.com").count).to eq(0)
+    end
+
+    it "rejects a local-part that starts with a dot" do
+      expect(extract_emails("Contact .john.doe@example.com").count).to eq(0)
+    end
+
+    # UTS #58 §5.2 step 6: mailto: is absorbed into the matched span.
+    it "absorbs a leading mailto: into the span" do
+      x = extract_emails("see mailto:abcd@example.com please")
+      expect(x.count).to eq(1)
+      expect(x.first[:email]).to eq("abcd@example.com")
+      expect(x.first[:url]).to eq("mailto:abcd@example.com")
+      expect(x.first[:indices]).to eq([4, 27])
+    end
+
+    it "absorbs a mailto: only at a clean boundary" do
+      # "foomailto:" should not be absorbed; the local-part scan still
+      # picks up the longest valid prefix, but the mailto: prefix logic
+      # only fires when "mailto:" is literally at offset start-7.
+      x = extract_emails("foomailto:abcd@example.com")
+      expect(x.count).to eq(1)
+      # local-part is the maximal trailing run of Link_Email chars,
+      # which includes "foomailto" minus the colon, i.e. "abcd".
+      expect(x.first[:email]).to eq("abcd@example.com")
+    end
+
+    it "decodes A-labels in the domain" do
+      x = extract_emails("write to arnt@xn-----ctdbabcfhu9c2b9l1acccr4c.xn--mgbah1a3hjkrd")
+      expect(x.count).to eq(1)
+      expect(x.first[:email]).to eq("arnt@تجربة-القبول-الشامل.موريتانيا")
+    end
+
+    it "finds two addresses in one text" do
+      x = extract_emails("from arnt@grå.org to gøril@example.com today")
+      expect(x.map { |r| r[:email] }).to eq(["arnt@grå.org", "gøril@example.com"])
+    end
+
+    it "rejects a bare @ with no local-part or domain" do
+      expect(extract_emails("a @ b").count).to eq(0)
+    end
+
+    it "respects max_length" do
+      e = Uts58::Extractor.new
+      e.max_length = 10
+      expect(e.extract_email_addresses("see abcd@example.com")).to eq([])
+      e.max_length = "abcd@example.com".length
+      expect(e.extract_email_addresses("see abcd@example.com"))
+        .to eq(["abcd@example.com"])
+    end
+  end
+
+  describe "module-level email wrappers" do
+    it "exposes Uts58.extract_email_addresses_with_indices" do
+      expect(Uts58.extract_email_addresses_with_indices("write arnt@grå.org now").first[:email])
+        .to eq("arnt@grå.org")
+    end
+
+    it "exposes Uts58.extract_email_addresses" do
+      expect(Uts58.extract_email_addresses("write arnt@grå.org now"))
+        .to eq(["arnt@grå.org"])
+    end
+  end
+
+  describe "module-level combined entity wrappers" do
+    it "returns both urls and emails as mixed-shape hashes" do
+      x = Uts58.extract_entities_with_indices("mail arnt@grå.org or see blogspot.com")
+      expect(x.count).to eq(2)
+      expect(x[0][:email]).to eq("arnt@grå.org")
+      expect(x[0][:url]).to eq("mailto:arnt@grå.org")
+      expect(x[1][:url]).to eq("https://blogspot.com")
+    end
+
+    it "keeps the email and drops the bare domain when they overlap" do
+      # "info@grå.org" is an address; "grå.org" inside it is also a bare
+      # domain. The earlier-starting email wins.
+      x = Uts58.extract_entities_with_indices("contact info@grå.org today")
+      expect(x.count).to eq(1)
+      expect(x.first[:email]).to eq("info@grå.org")
+    end
+
+    it "sorts entities by start offset" do
+      x = Uts58.extract_entities_with_indices("see blogspot.com then mail gøril@example.com")
+      expect(x.map { |e| e[:url] })
+        .to eq(["https://blogspot.com", "mailto:gøril@example.com"])
+    end
+
+    it "flattens to mailto/https url strings via extract_entities" do
+      expect(Uts58.extract_entities("mail arnt@grå.org or see blogspot.com"))
+        .to eq(["mailto:arnt@grå.org", "https://blogspot.com"])
+    end
+
+    it "returns an empty list for text with neither" do
+      expect(Uts58.extract_entities_with_indices("nothing to see here")).to eq([])
+      expect(Uts58.extract_entities("nothing to see here")).to eq([])
+    end
+  end
+
   describe "module-level wrappers" do
     it "exposes Uts58.extract_urls_with_indices" do
       expect(Uts58.extract_urls_with_indices("see example.com here").first[:url])

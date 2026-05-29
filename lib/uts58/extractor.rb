@@ -4,15 +4,23 @@ require 'public_suffix'
 require_relative 'constants'
 
 module Uts58
-  # Finds web links in arbitrary text per UTS #58. The public API
-  # mirrors Twitter::TwitterText::Extractor closely enough that
-  # twitter-text consumers (notably Mastodon) can swap one for the
-  # other.
+  # Finds links in arbitrary text per UTS #58. The public API mirrors
+  # Twitter::TwitterText::Extractor closely enough that twitter-text
+  # consumers (notably Mastodon) can easily swap one for the other.
   #
   # Instances carry only optional configuration (see #max_length=); if
-  # you don't need to set anything, the module-level
-  # Uts58.extract_urls and Uts58.extract_urls_with_indices shortcuts
+  # you don't need to set anything, the module-level shortcuts
   # are simpler.
+  #
+  # Note that this may often find overlapping link candiates,
+  # e.g. "contact example@example.com for details" may find a mailto
+  # link and also a link to +https://example.com+. You'll almost
+  # certainly want to #remove_overlapping_entities after extracting
+  # the kinds of entities you want and merging the lists.
+  #
+  # (Bluesky handles vs. web sites are another example of common
+  # overlap, Fediverse vs. email a third, Tibetan domains
+  # vs. themselves a less common fourth, the list goes on.)
   class Extractor
     PATH_CLOSERS = [35, 47, 63]
     QUERY_CLOSERS = [35] # how about &?
@@ -20,7 +28,7 @@ module Uts58
 
     # Maximum allowed length of the matched text, in input codepoints.
     # Matches whose input span exceeds this are dropped from the result
-    # of #extract_urls_with_indices.
+    # of #extract_urls_with_indices and the other extraction methods.
     #
     # "Matched text" means the substring that came out of +text+ — for
     # example 11 for <tt>"example.com"</tt>. The returned +:url+ can
@@ -125,6 +133,73 @@ module Uts58
     # For text such as "a example.com b", this returns ["https://example.com"].
     def extract_urls(text, options = {})
       extract_urls_with_indices(text, options).map { |r| r[:url] }
+    end
+
+    # Returns every email address found in +text+ as a list of hashes:
+    #
+    #   { email: String, url: String, indices: [start, end] }
+    #
+    # +email+ is the bare address ( <tt>"info@example.com"</tt> ); +url+ is
+    # the same thing as a +mailto:+ URL ( <tt>"mailto:info@example.com"</tt> ), so
+    # that the result drops straight into anything that already knows how
+    # to render a <tt>:url</tt> entity. Both carry the IDN-decoded domain
+    # (A-labels become U-labels, as in #extract_urls_with_indices).
+    # +indices+ are codepoint offsets, +end+ exclusive; they cover a
+    # leading +mailto:+ in the input if there was one, per UTS #58 §5.2.
+    #
+    # A plain address such as "info@example.com" overlaps the bare domain
+    # "example.com" that #extract_urls_with_indices would find after the
+    # <tt>@</tt>. If you'd rather *not* turn addresses into +mailto:+ links, you
+    # have two choices, with different outcomes for
+    # "blah info@example.com blah":
+    #
+    # 1. Extract both kinds, merge with #remove_overlapping_entities, then
+    #    drop the survivors that have an +:email+ key. The address wins the
+    #    overlap, so dropping it leaves that span unlinked — "info@example.com"
+    #    becomes plain text.
+    # 2. Extract only URLs (skip this method). The URL scan still sees the
+    #    domain after the <tt>@</tt>, so the same input links to
+    #    +https://example.com+.
+    #
+    # Returns an empty array if +text+ contains no addresses. +options+ is
+    # accepted for twitter-text compatibility and currently ignored.
+    def extract_email_addresses_with_indices(text, options = {})
+      result = []
+      text.to_enum(:scan, /@/).map{Regexp.last_match}.each do |match|
+        at_pos = match.begin(0)
+        pre = text[0...at_pos]
+        lp_match = /[\p{XID_Continue}.!#$%&'*+\-\/=?^_`{|}~]+\z/.match(pre)
+        next unless lp_match
+        local = lp_match[0]
+        next if local.start_with?('.') || local.end_with?('.') || local.include?('..')
+        s = match.post_match
+        prefix = /^([-\p{L}\p{N}\p{M}ßς۽۾་〇]+[\.。]){1,4}[-\p{L}\p{N}\p{M}]+(?![-\p{L}\p{N}\p{M}])/.match(s)
+        next unless prefix && prefix[0].length < 254
+        hn = SimpleIDN.to_unicode(prefix.match(0).gsub(/。/, "."))
+        begin
+          about = PublicSuffix.parse(hn, ignore_private: true, default_rule: nil)
+          next unless about && about.tld != "invalid"
+        rescue PublicSuffix::DomainInvalid, PublicSuffix::DomainNotAllowed
+          next
+        end
+        local_start = at_pos - local.length
+        end_pos = at_pos + 1 + prefix[0].length
+        # UTS #58 §5.2 step 6: absorb a leading "mailto:" into the span.
+        if local_start >= 7 && text[(local_start - 7)...local_start].downcase == "mailto:"
+          local_start -= 7
+        end
+        next if @max_length && (end_pos - local_start) > @max_length
+        result << {
+          email: "#{local}@#{hn}",
+          url: "mailto:#{local}@#{hn}",
+          indices: [local_start, end_pos]
+        }
+      end
+      result
+    end
+
+    def extract_email_addresses(text, options = {})
+      extract_email_addresses_with_indices(text, options).map { |r| r[:email] }
     end
 
     # Given a list of entities (hashes with an +:indices+ key of the

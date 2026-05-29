@@ -35,6 +35,46 @@ module Uts58
       extract_urls_with_indices(text, options).map { |r| r[:url] }
     end
 
+    # Like Uts58::Extractor#extract_email_addresses_with_indices, but
+    # with overlapping results merged.
+    def extract_email_addresses_with_indices(text, options = {})
+      extractor.remove_overlapping_entities(
+        extractor.extract_email_addresses_with_indices(text, options)
+      )
+    end
+
+    # Like Uts58::Extractor#extract_email_addresses, but with
+    # overlapping results merged.
+    def extract_email_addresses(text, options = {})
+      extract_email_addresses_with_indices(text, options).map { |r| r[:email] }
+    end
+
+    # Both the URLs and email addresses in +text+, as one list of
+    # mixed-shape hashes — <tt>{ url:, indices: }</tt> for links and
+    # <tt>{ email:, indices: }</tt> for addresses — sorted by start
+    # offset with overlaps removed. The name and mixed-shape return
+    # follow Twitter::TwitterText::Extractor#extract_entities_with_indices.
+    #
+    # Overlap is the point of going through here rather than calling the
+    # two extractors yourself: "contact info@grå.org today" yields both
+    # an email and the bare domain grå.org, and only one of those should
+    # survive. The earlier-starting candidate (the email) wins.
+    def extract_entities_with_indices(text, options = {})
+      extractor.remove_overlapping_entities(
+        extractor.extract_urls_with_indices(text, options) +
+        extractor.extract_email_addresses_with_indices(text, options)
+      )
+    end
+
+    # Like ::extract_entities_with_indices, but flattened to the bare
+    # URL strings, in the order they occur. Email addresses appear in
+    # their +mailto:+ form, e.g. "contact info@example.com or look at
+    # example.com" returns [<tt>"mailto:info@example.com"</tt>,
+    # <tt>"https://example.com"</tt>].
+    def extract_entities(text, options = {})
+      extract_entities_with_indices(text, options).map { |e| e[:url] }
+    end
+
     private
 
     def extractor

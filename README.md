@@ -2,11 +2,11 @@
 
 A Ruby implementation of [UTS #58](https://www.unicode.org/reports/tr58/),
 the Unicode spec for finding links in running text. Given a chunk of text,
-it returns the URLs in it along with their character offsets.
+it returns the URLs and email addresses in it along with their character
+offsets.
 
-This covers the **web link** half of UTS #58 only. Email address recognition
-is not implemented here since at the moment it's unclear whether that's
-desirable on generally visible web pages.
+Both halves of UTS #58 are covered: **web links** and **email addresses**.
+The two are detected independently and can be combined.
 
 Tested extensively on relevant OSes: [![CI](https://github.com/arnt/uts58/actions/workflows/ci.yml/badge.svg)](https://github.com/arnt/uts58/actions/workflows/ci.yml)
 
@@ -56,13 +56,62 @@ can read.)
 Trailing punctuation, balanced brackets, ports, paths, queries and fragments
 are handled per the spec.
 
+## Email addresses
+
+Email detection mirrors the URL methods. Each result carries the address
+twice — as a bare `:email` and as a `mailto:` `:url` — so it drops straight
+into anything that already renders a `:url` entity:
+
+```ruby
+Uts58.extract_email_addresses_with_indices("write to info@grå.org today")
+# => [{ email: "info@grå.org",
+#       url: "mailto:info@grå.org",
+#       indices: [9, 21] }]
+
+Uts58.extract_email_addresses("write to info@grå.org today")
+# => ["info@grå.org"]
+```
+
+UTS #58 allows Unicode local-parts, so `阿Q@例子.中国` and `उदाहरण@उदाहरण.भारत`
+are recognised; the domain is IDN-decoded just like a URL host. A leading
+`mailto:` in the input is folded into the matched span.
+
+## Combined extraction
+
+`extract_entities_with_indices` runs both detectors, sorts by offset, and
+strips overlaps — mirroring `Twitter::TwitterText::Extractor#extract_entities_with_indices`.
+The result is a mixed list of `:url` and email (`:email` + `:url`) hashes:
+
+```ruby
+Uts58.extract_entities_with_indices("mail arnt@grå.org or see blogspot.com")
+# => [{ email: "arnt@grå.org", url: "mailto:arnt@grå.org", indices: [5, 17] },
+#     { url: "https://blogspot.com", indices: [25, 37] }]
+
+Uts58.extract_entities("mail arnt@grå.org or see blogspot.com")
+# => ["mailto:arnt@grå.org", "https://blogspot.com"]
+```
+
+### Not wanting `mailto:` links
+
+`info@example.com` overlaps the bare domain `example.com` that the URL scan
+finds after the `@`. If you'd rather not turn addresses into `mailto:` links,
+you have two options, with different results for `contact info@example.com for pricing`:
+
+1. **Extract both, then drop emails.** Take `extract_entities_with_indices`
+   (already overlap-stripped) and reject the hashes that have an `:email`
+   key. The address wins the overlap, so dropping it leaves that span
+   *unlinked* — `info@example.com` stays plain text. Choose this if an
+   address shouldn't silently become a website link.
+2. **Extract only URLs.** Call `extract_urls_with_indices` and skip email
+   detection entirely. The URL scan finds domain after the `@`, so the
+   same input links to `https://example.com`. Choose this if you'd
+   rather fall back to the domain.
+
 ## What's not here
 
-- **Email addresses.** UTS #58 covers them; this gem doesn't. If you
-  need that, send me mail and explain what you need.
 - **Link validation.** Recognised URLs are not fetched, normalised beyond
-  IDN decoding, or their hostnames checked in the DNS. Again, if you
-  need this, send me mail.
+  IDN decoding, or their hostnames checked in the DNS. If you need this,
+  send me mail.
 
 ## Roadmap
 
