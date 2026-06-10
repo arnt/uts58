@@ -123,3 +123,8 @@ rdoc remains short and simple. Send mail to arnt@gulbrandsen.priv.no.
 ## License
 
 BSD-2-Clause. See `LICENSE`.
+
+FWIW, I wrote this as part of my work at ICANN and will maintain it as
+part of the same work. (I resolve problems relating to Unicode in
+domains, email addresses and similar, so more people, more
+communities, can use the internet in the way they prefer.)
