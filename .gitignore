@@ -1,0 +1,6 @@
+*~
+ruby/.bundle/
+ruby/.byebug_history
+ruby/Gemfile.lock
+ruby/vendor/
+ruby/*.gem
