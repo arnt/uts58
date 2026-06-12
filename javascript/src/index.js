@@ -1,4 +1,4 @@
-// Default entry point: UTS #58 web-link extraction, with hosts validated
+// Default entry point: UTS58 web-link extraction, with hosts validated
 // against the Public Suffix List (ICANN section). The six functions are thin
 // wrappers around a shared Extractor; they also drop overlapping candidates,
 // keeping the earlier-starting one.

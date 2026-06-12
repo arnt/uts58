@@ -395,7 +395,7 @@ describe('Extractor#extractEmailAddressesWithIndices', () => {
     assert.equal(x[0].email, 'አርበርቶ.አርበርቶ@example.com');
   });
 
-  test('accepts the Greek example from UTS #58 §5.1', () => {
+  test('accepts the Greek example from UTS58 5.1', () => {
     const x = extractEmails('write to σωκράτης@example.com');
     assert.equal(x.length, 1);
     assert.equal(x[0].email, 'σωκράτης@example.com');

@@ -1,6 +1,6 @@
 # frozen_string_literal: true
 
-# Ruby implementation of {UTS #58}[https://www.unicode.org/reports/tr58/],
+# Ruby implementation of {UTS58}[https://www.unicode.org/reports/tr58/],
 # the Unicode spec for finding links in running text.
 #
 # The two entry points below are module-level shortcuts around a single

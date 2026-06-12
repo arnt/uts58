@@ -4,7 +4,7 @@ require 'public_suffix'
 require_relative 'constants'
 
 module Uts58
-  # Finds links in arbitrary text per UTS #58. The public API mirrors
+  # Finds links in arbitrary text per UTS58. The public API mirrors
   # Twitter::TwitterText::Extractor closely enough that twitter-text
   # consumers (notably Mastodon) can easily swap one for the other.
   #
@@ -145,7 +145,7 @@ module Uts58
     # to render a <tt>:url</tt> entity. Both carry the IDN-decoded domain
     # (A-labels become U-labels, as in #extract_urls_with_indices).
     # +indices+ are codepoint offsets, +end+ exclusive; they cover a
-    # leading +mailto:+ in the input if there was one, per UTS #58 §5.2.
+    # leading +mailto:+ in the input if there was one, per UTS58 5.2.
     #
     # A plain address such as "info@example.com" overlaps the bare domain
     # "example.com" that #extract_urls_with_indices would find after the
@@ -184,7 +184,7 @@ module Uts58
         end
         local_start = at_pos - local.length
         end_pos = at_pos + 1 + prefix[0].length
-        # UTS #58 §5.2 step 6: absorb a leading "mailto:" into the span.
+        # UTS58 5.2 step 6: absorb a leading "mailto:" into the span.
         if local_start >= 7 && text[(local_start - 7)...local_start].downcase == "mailto:"
           local_start -= 7
         end

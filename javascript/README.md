@@ -90,7 +90,7 @@ extractEmailAddresses('contact info@grå.org today');
 Each result carries both the bare `email` and a `mailto:` `url`, so it
 drops straight into anything that already renders a `url` entity. The
 domain is IDN-decoded the same way as in `extractUrls`, and a leading
-`mailto:` in the input is absorbed into `indices` per UTS58 §5.2.
+`mailto:` in the input is absorbed into `indices` per UTS58 5.2.
 
 A plain address overlaps the bare domain that `extractUrls` would find
 after the `@`. `extractEntitiesWithIndices` runs both extractors,
@@ -210,7 +210,7 @@ span and `url` happen to be identical there. The asymmetry shows up
 the other way for `example.com` (11 input cp, 19 in `url`) — the cap
 of 12 keeps it.
 
-**`mailto:` is absorbed into `indices`.** Per UTS58 §5.2, the input
+**`mailto:` is absorbed into `indices`.** Per UTS58 5.2, the input
 `mailto:abcd@example.com` returns an entity whose span covers the
 whole 23-codepoint run, not just the address. The `email` field still
 holds the bare address. If your link-rendering code assumes the span

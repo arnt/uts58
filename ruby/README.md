@@ -1,11 +1,11 @@
 # uts58
 
-A Ruby implementation of [UTS #58](https://www.unicode.org/reports/tr58/),
+A Ruby implementation of [UTS58](https://www.unicode.org/reports/tr58/),
 the Unicode spec for finding links in running text. Given a chunk of text,
 it returns the URLs and email addresses in it along with their character
 offsets.
 
-Both halves of UTS #58 are covered: **web links** and **email addresses**.
+Both halves of UTS58 are covered: **web links** and **email addresses**.
 The two are detected independently and can be combined.
 
 Tested extensively on relevant OSes: [![CI](https://github.com/arnt/uts58/actions/workflows/ruby.yml/badge.svg)](https://github.com/arnt/uts58/actions/workflows/ruby.yml)
@@ -72,7 +72,7 @@ Uts58.extract_email_addresses("write to info@grå.org today")
 # => ["info@grå.org"]
 ```
 
-UTS #58 allows Unicode local-parts, so `阿Q@例子.中国` and `उदाहरण@उदाहरण.भारत`
+UTS58 allows Unicode local-parts, so `阿Q@例子.中国` and `उदाहरण@उदाहरण.भारत`
 are recognised; the domain is IDN-decoded just like a URL host. A leading
 `mailto:` in the input is folded into the matched span.
 

@@ -44,7 +44,7 @@ const MAX_HOST_SCAN_CP = 262;
 
 // One local-part character. We walk left from an '@' testing this rather
 // than slicing the whole preceding text and matching it anchored, which was
-// O(prefix) per '@'. XID_Continue covers the letters/digits/marks UTS #58
+// O(prefix) per '@'. XID_Continue covers the letters/digits/marks UTS58
 // allows; the punctuation set is the dot-atom-plus-extras from the spec.
 const LP_CHAR = new RegExp("[\\p{XID_Continue}.!#$%&'*+\\-/=?^_`{|}~]", 'u');
 
@@ -252,7 +252,7 @@ export class Extractor {
   // thing as a mailto: URL, so the result drops straight into anything
   // that already renders a `url` entity. Both carry the IDN-decoded
   // domain. `indices` are codepoint offsets, `end` exclusive, and
-  // absorb a leading "mailto:" if the input had one (UTS #58 §5.2).
+  // absorb a leading "mailto:" if the input had one (UTS58 5.2).
   //
   // A plain address overlaps the bare domain after the '@' that
   // extractUrlsWithIndices would find; see extractEntitiesWithIndices
@@ -293,7 +293,7 @@ export class Extractor {
       if (!this.isPlausibleHost(hn)) continue;
 
       const endPos = at + 1 + prefixCpLen;
-      // UTS #58 §5.2 step 6: absorb a leading "mailto:" into the span.
+      // UTS58 5.2 step 6: absorb a leading "mailto:" into the span.
       if (localStart >= 7 &&
           cpSlice(cps, localStart - 7, localStart).toLowerCase() === 'mailto:') {
         localStart -= 7;

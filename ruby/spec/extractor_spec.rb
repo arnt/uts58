@@ -404,7 +404,7 @@ RSpec.describe "Extraction" do
       @extractor.extract_email_addresses_with_indices(text)
     end
 
-    # Table 5-1 from UTS #58: positive cases.
+    # Table 5-1 from UTS58: positive cases.
     it "extracts a plain ASCII address" do
       x = extract_emails("Contact abcd@example.com")
       expect(x.count).to eq(1)
@@ -425,7 +425,7 @@ RSpec.describe "Extraction" do
       expect(x.first[:email]).to eq("አርበርቶ.አርበርቶ@example.com")
     end
 
-    it "accepts the Greek example from UTS #58 §5.1" do
+    it "accepts the Greek example from UTS58 5.1" do
       x = extract_emails("write to σωκράτης@example.com")
       expect(x.count).to eq(1)
       expect(x.first[:email]).to eq("σωκράτης@example.com")
@@ -447,7 +447,7 @@ RSpec.describe "Extraction" do
       end
     end
 
-    # Table 5-1 from UTS #58: negative cases.
+    # Table 5-1 from UTS58: negative cases.
     it "rejects an address with no valid domain" do
       expect(extract_emails("Contact x@example.😎").count).to eq(0)
     end
@@ -468,7 +468,7 @@ RSpec.describe "Extraction" do
       expect(extract_emails("Contact .john.doe@example.com").count).to eq(0)
     end
 
-    # UTS #58 §5.2 step 6: mailto: is absorbed into the matched span.
+    # UTS58 5.2 step 6: mailto: is absorbed into the matched span.
     it "absorbs a leading mailto: into the span" do
       x = extract_emails("see mailto:abcd@example.com please")
       expect(x.count).to eq(1)
