@@ -1,6 +1,12 @@
 *~
+\#*\#
+.#*
+.byebug_history
+.claude/settings.local.json
 ruby/.bundle/
-ruby/.byebug_history
 ruby/Gemfile.lock
 ruby/vendor/
 ruby/*.gem
+ruby/LICENSE
+javascript/node_modules/
+javascript/LICENSE

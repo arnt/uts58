@@ -12,10 +12,16 @@ Gem::Specification.new do |spec|
   spec.required_ruby_version = Gem::Requirement.new(">= 3.1")
   spec.licenses       = ["BSD-2-Clause"]
 
+  # The license lives once at the repository root; copy it in so it ships in
+  # the gem, since git ls-files below only reaches files under ruby/.
+  require "fileutils"
+  FileUtils.cp(File.expand_path("../LICENSE", __dir__),
+               File.expand_path("LICENSE", __dir__))
+
   # Specify which files should be added to the gem when it is released.
   # The `git ls-files -z` loads the files in the RubyGem that have been added into git.
   spec.files         = Dir.chdir(File.expand_path('..', __FILE__)) do
-    `git ls-files -z 2>/dev/null`.split("\x0").reject { |f| f.match(%r{^(bin|test|spec|features|rfcs|tools)/}) }
+    `git ls-files -z 2>/dev/null`.split("\x0").reject { |f| f.match(%r{^(bin|test|spec|features|rfcs|tools)/}) } + ["LICENSE"]
   end
   spec.require_paths = ["lib"]
 

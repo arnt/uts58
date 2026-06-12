@@ -1,9 +1,15 @@
-name: CI
+name: Ruby CI
 
 on:
   push:
     branches: [main]
+    paths: ['ruby/**']
   pull_request:
+    paths: ['ruby/**']
+
+defaults:
+  run:
+    working-directory: ruby
 
 jobs:
   test:
@@ -18,4 +24,5 @@ jobs:
         with:
           ruby-version: ${{ matrix.ruby }}
           bundler-cache: true
+          working-directory: ruby
       - run: bundle exec rspec

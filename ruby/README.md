@@ -8,7 +8,7 @@ offsets.
 Both halves of UTS #58 are covered: **web links** and **email addresses**.
 The two are detected independently and can be combined.
 
-Tested extensively on relevant OSes: [![CI](https://github.com/arnt/uts58/actions/workflows/ci.yml/badge.svg)](https://github.com/arnt/uts58/actions/workflows/ci.yml)
+Tested extensively on relevant OSes: [![CI](https://github.com/arnt/uts58/actions/workflows/ruby.yml/badge.svg)](https://github.com/arnt/uts58/actions/workflows/ruby.yml)
 
 ## Install
 

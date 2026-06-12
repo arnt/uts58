@@ -1,0 +1,48 @@
+{
+  "name": "uts58",
+  "version": "0.2.1",
+  "description": "UTS #58 web-link extraction for JavaScript.",
+  "type": "module",
+  "main": "src/index.js",
+  "types": "src/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index.js"
+    },
+    "./iana": {
+      "types": "./src/index.d.ts",
+      "default": "./src/index-iana.js"
+    },
+    "./core": {
+      "types": "./src/core.d.ts",
+      "default": "./src/core.js"
+    }
+  },
+  "files": ["src"],
+  "sideEffects": false,
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "maketables": "node tools/maketables.js",
+    "maketlds": "node tools/maketlds.js",
+    "prepack": "cp ../LICENSE LICENSE",
+    "postpack": "rm -f LICENSE"
+  },
+  "keywords": ["uts58", "url", "extractor", "idn", "twitter-text"],
+  "author": "Arnt Gulbrandsen <arnt@gulbrandsen.priv.no>",
+  "license": "BSD-2-Clause",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/arnt/uts58.git"
+  },
+  "bugs": {
+    "url": "https://github.com/arnt/uts58/issues"
+  },
+  "homepage": "https://github.com/arnt/uts58#readme",
+  "dependencies": {
+    "punycode": "^2.3.1"
+  }
+}
