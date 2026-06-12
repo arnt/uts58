@@ -6,6 +6,9 @@ the Unicode spec for finding links in running text. Given a chunk of text,
 they return the URLs and email addresses in it along with their character
 offsets.
 
+CI for [the Ruby code](https://github.com/arnt/uts58/tree/main/ruby): [![CI](https://github.com/arnt/uts58/actions/workflows/ruby.yml/badge.svg)](https://github.com/arnt/uts58/actions/workflows/ruby.yml)
+and for [the Javascript code](https://github.com/arnt/uts58/tree/main/javascript): [![CI](https://github.com/arnt/uts58/actions/workflows/javascript.yml/badge.svg)](https://github.com/arnt/uts58/actions/workflows/javascript.yml)
+
 ## Roadmap
 
 My immediate need is UTS58 conformant link detection suitable for
