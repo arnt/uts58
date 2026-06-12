@@ -13,13 +13,14 @@ import punycode from 'punycode/punycode.js';
 // one label before the suffix.
 export function makeHostChecker(suffixes) {
   return (host) => {
+    const folded = host.normalize('NFC').toLowerCase();
     let ascii;
     try {
-      ascii = punycode.toASCII(host);
+      ascii = punycode.toASCII(folded);
     } catch {
-      ascii = host;
+      ascii = folded;
     }
-    const labels = ascii.toLowerCase().split('.');
+    const labels = ascii.split('.');
     for (let i = labels.length - 1; i >= 1; i--) {
       if (suffixes.has(labels.slice(i).join('.'))) return true;
     }

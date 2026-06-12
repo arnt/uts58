@@ -82,6 +82,20 @@ test('decodes A-labels in the resulting URL', () => {
   assert.equal(x[0].url, 'https://تجربة-القبول-الشامل.موريتانيا');
 });
 
+test('extracts a Cyrillic .укр host from surrounding words', () => {
+  const x = extract('тест тест.укр тест');
+  assert.equal(x.length, 1);
+  assert.equal(x[0].url, 'https://тест.укр');
+});
+
+// The host must fold to the same A-label whatever case it is written in;
+// .УКР and .укр are one ccTLD (xn--j1amh).
+test('extracts the same .укр host written in upper case', () => {
+  const x = extract('ТЕСТ ТЕСТ.УКР ТЕСТ');
+  assert.equal(x.length, 1);
+  assert.equal(x[0].url.toLowerCase(), 'https://тест.укр');
+});
+
 const uasg004domains = [
   'universal-acceptance-test.international',
   'universal-acceptance-test.icu',

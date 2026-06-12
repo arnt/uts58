@@ -79,6 +79,20 @@ RSpec.describe "Extraction" do
     expect(x.first[:url]).to eq("https://تجربة-القبول-الشامل.موريتانيا")
   end
 
+  it "extracts a Cyrillic .укр host from surrounding words" do
+    x = extract_urls("тест тест.укр тест")
+    expect(x.count).to eq(1)
+    expect(x.first[:url]).to eq("https://тест.укр")
+  end
+
+  # The host must fold to the same A-label whatever case it is written in;
+  # .УКР and .укр are one ccTLD (xn--j1amh).
+  it "extracts the same .укр host written in upper case" do
+    x = extract_urls("ТЕСТ ТЕСТ.УКР ТЕСТ")
+    expect(x.count).to eq(1)
+    expect(x.first[:url].downcase).to eq("https://тест.укр")
+  end
+
   uasg004domains = [
     #, 1, ASCII.ASCII, new-long, Long ASCII
     "universal-acceptance-test.international",
