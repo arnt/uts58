@@ -1,0 +1,68 @@
+name: Refresh TLD tables
+
+on:
+  schedule:
+    # 04:00 UTC on the 1st of each month.
+    - cron: '0 4 1 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      # JavaScript carries its own committed tables, regenerated from the
+      # live IANA root zone and PSL.
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: javascript/package-lock.json
+      - run: npm ci
+        working-directory: javascript
+      - run: npm run maketlds
+        working-directory: javascript
+
+      # Ruby has no committed table; its PSL comes from the public_suffix
+      # gem at runtime, so the only thing to refresh is the lock pin.
+      - uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.4"
+          bundler-cache: true
+          working-directory: ruby
+      - run: bundle update public_suffix
+        working-directory: ruby
+
+      - name: Commit refreshed data
+        run: |
+          paths="javascript/src/tlds-iana.js javascript/src/suffixes-psl.js ruby/Gemfile.lock"
+          if git diff --quiet -- $paths; then
+            echo "IANA, PSL and public_suffix all unchanged; nothing to commit."
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add $paths
+          git commit -m "Refresh IANA/PSL tables and public_suffix gem"
+          git push
+
+      # The bump above only reaches the newest public_suffix *release*, which
+      # snapshots the PSL at its own build time. If even that is old, Ruby's
+      # data is drifting from the live list JavaScript just fetched — fail so
+      # the staleness is visible rather than silent.
+      - name: Check the public_suffix snapshot is not too old
+        working-directory: ruby
+        run: |
+          ruby -rjson -ropen-uri -rdate -e '
+            ver = File.read("Gemfile.lock")[/public_suffix \(([\d.]+)\)/, 1]
+            url = "https://rubygems.org/api/v1/versions/public_suffix.json"
+            rel = JSON.parse(URI.open(url).read).find { |v| v["number"] == ver }
+            age = (Date.today - Date.parse(rel["created_at"])).to_i
+            puts "public_suffix #{ver} released #{rel["created_at"]}, #{age} days ago"
+            abort "public_suffix #{ver} is #{age} days old; its PSL snapshot is likely stale" if age > 180
+          '
