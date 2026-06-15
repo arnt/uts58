@@ -1,6 +1,6 @@
 {
   "name": "uts58",
-  "version": "0.2.1",
+  "version": "0.2.2",
   "description": "UTS #58 web-link extraction for JavaScript.",
   "type": "module",
   "main": "src/index.js",
