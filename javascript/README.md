@@ -11,7 +11,7 @@ Tested extensively on relevant OSes: [![CI](https://github.com/arnt/uts58/action
 ## Install
 
 ```sh
-npm install uts58
+npm install @agulbra/uts58
 ```
 
 ESM-only; Node 18+ (uses Unicode property escapes and lookbehinds).
@@ -19,7 +19,7 @@ ESM-only; Node 18+ (uses Unicode property escapes and lookbehinds).
 ## Usage
 
 ```js
-import { extractUrls, extractUrlsWithIndices } from 'uts58';
+import { extractUrls, extractUrlsWithIndices } from '@agulbra/uts58';
 
 extractUrlsWithIndices('see https://example.com/ for details');
 // => [{ url: 'https://example.com/', indices: [4, 24] }]
@@ -79,7 +79,7 @@ import {
   extractEmailAddressesWithIndices,
   extractEntities,
   extractEntitiesWithIndices,
-} from 'uts58';
+} from '@agulbra/uts58';
 
 extractEmailAddressesWithIndices('contact info@grå.org today');
 // => [{ email: 'info@grå.org', url: 'mailto:info@grå.org', indices: [8, 20] }]
@@ -112,16 +112,16 @@ table:
 
 | import | table | gzipped |
 | --- | --- | --- |
-| `uts58` (default) | Public Suffix List, ICANN section | ~5 KB |
-| `uts58/iana` | IANA root-zone TLDs | ~5 KB |
-| `uts58/core` | none — you supply the check | 0 KB |
+| `@agulbra/uts58` (default) | Public Suffix List, ICANN section | ~5 KB |
+| `@agulbra/uts58/iana` | IANA root-zone TLDs | ~5 KB |
+| `@agulbra/uts58/core` | none — you supply the check | 0 KB |
 
 All three expose the same API. The two tables are about the same size and
 agree on nearly every host — the difference is how strict the check is for
-the handful of TLDs that only register at the second level. `uts58/iana`
+the handful of TLDs that only register at the second level. `@agulbra/uts58/iana`
 asks only "is the rightmost label a real TLD": enough to tell `blogspot.jp`
 from `blogspot.exe` and to reject typos like `example.cmo`, but it treats a
-bare `foo.za` as plausible. The default `uts58` carries the PSL, which knows
+bare `foo.za` as plausible. The default `@agulbra/uts58` carries the PSL, which knows
 South Africa registers under `co.za` / `org.za` and so rejects a bare
 `foo.za`. If that distinction doesn't matter to you, the tables are
 interchangeable.
@@ -133,11 +133,11 @@ flat membership test is all it does. The PSL table is folded accordingly —
 redundant by a shorter one removed (with `no` present, `møre-og-romsdal.no`
 is dropped). That folding is what keeps it down to ~5 KB.
 
-`uts58/core` bundles no table at all. Bring your own check — over a suffix
+`@agulbra/uts58/core` bundles no table at all. Bring your own check — over a suffix
 set, or wrapping a library you already depend on:
 
 ```js
-import { Extractor } from 'uts58/core';
+import { Extractor } from '@agulbra/uts58/core';
 import { parse } from 'tldts';
 
 const ex = new Extractor({
@@ -150,7 +150,7 @@ ex.extractUrls('see example.com here');
 ```
 
 That route is also how you get exact PSL semantics back, at the cost of a
-dependency you choose rather than one this package forces on you. (`uts58`
+dependency you choose rather than one this package forces on you. (`@agulbra/uts58`
 itself depends only on `punycode`.)
 
 ## Suggested test cases and notable behaviour

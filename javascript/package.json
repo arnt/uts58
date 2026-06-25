@@ -1,5 +1,5 @@
 {
-  "name": "uts58",
+  "name": "@agulbra/uts58",
   "version": "0.2.2",
   "description": "UTS #58 web-link extraction for JavaScript.",
   "type": "module",
@@ -34,6 +34,9 @@
   "keywords": ["uts58", "url", "extractor", "idn", "twitter-text"],
   "author": "Arnt Gulbrandsen <arnt@gulbrandsen.priv.no>",
   "license": "BSD-2-Clause",
+  "publishConfig": {
+    "access": "public"
+  },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/arnt/uts58.git",

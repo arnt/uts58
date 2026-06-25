@@ -70,7 +70,7 @@ npm test
 # the tarball contents without uploading anything.
 npm publish --dry-run
 npm pack
-tgz="$PWD/uts58-$version.tgz"
+tgz="$PWD/agulbra-uts58-$version.tgz"
 
 echo
 echo "Built and checked at tag $tag:"
