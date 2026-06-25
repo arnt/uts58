@@ -2,9 +2,10 @@
 // own core.d.ts). Hand-written to match the sources; keep them in sync by
 // hand (there's no build step).
 
-/** A `[start, end)` span, measured in Unicode codepoints — not UTF-16 code
- * units. To slice the source text by these, index `Array.from(text)`, not
- * the string directly, or astral characters will throw the offsets off. */
+/** A `[start, end)` span in UTF-16 code units — the same units as
+ * `String.prototype.slice`, `String#length`, the DOM, and editors — so
+ * `text.slice(start, end)` returns the matched substring directly. (The Ruby
+ * port reports codepoint offsets instead, idiomatic for Ruby strings.) */
 export type Indices = [start: number, end: number];
 
 /** A web link found in the text. `url` carries the IDN-decoded host and a
@@ -42,8 +43,10 @@ export interface ExtractorOptions {
 export declare class Extractor {
   constructor(options?: ExtractorOptions);
 
-  /** Maximum length of a matched span, in input codepoints. `null` (the
-   * default) means no limit. Candidates longer than this are dropped. */
+  /** Maximum length of a matched span, in input codepoints, so that
+   *  "☺" "😀" are equal in length. `null` (the * default) means no
+   *  limit. Candidates longer than this are dropped. */
+
   maxLength: number | null;
 
   isPlausibleHost: (host: string) => boolean;

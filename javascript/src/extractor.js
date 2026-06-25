@@ -13,6 +13,9 @@ import {
 const PATH_CLOSERS = new Set([0x23, 0x2f, 0x3f]); // # / ?
 const QUERY_CLOSERS = new Set([0x23]);            // #
 const FRAGMENT_CLOSERS = new Set();
+const NO_SEPARATORS = new Set();
+const QUERY_SEPARATORS = new Set([0x3d, 0x26]);          // = &
+const DIRECTIVE_SEPARATORS = new Set([0x2c, 0x3d, 0x26]); // , = &
 
 // The Ruby `\p{Alnum}` class is letters + numbers only; JS doesn't
 // ship that as a single property escape, so we spell it out.
@@ -20,8 +23,13 @@ const ALNUM = '\\p{L}\\p{N}';
 const LNM = '\\p{L}\\p{N}\\p{M}';
 const SEP_EXTRAS = '\\u00DF\\u03C2\\u06FD\\u06FE\\u0F0B\\u3007';
 
+// The '@' in the negative lookbehind is non-obvious: UTS58 has no
+// userinfo, so a host that immediately follows an '@' may be part of
+// an email address (or perhaps a bluesky/mastodon address) but it cannot
+// be a http(s) URL. The rest of the set just keeps a trigger from
+// firing inside a word, number, or path.
 const TRIGGER_RE = new RegExp(
-  `(?<![-${ALNUM}\\p{M}.\\/])(?=[${ALNUM}][-${LNM}${SEP_EXTRAS}]*[.:。])`,
+  `(?<![-${ALNUM}\\p{M}.\\/@])(?=[${ALNUM}][-${LNM}${SEP_EXTRAS}]*[.:。])`,
   'gu',
 );
 
@@ -65,6 +73,16 @@ function cpSlice(cps, start, end) {
   return cps.slice(start, end).join('');
 }
 
+// Codepoint index → UTF-16 offset, as a prefix sum of codepoint widths. The
+// scan runs in codepoints to mirror the Ruby, but the public indices are
+// UTF-16 so they drop straight into String.prototype.slice, the DOM, and
+// editors. (Ruby keeps codepoint offsets, idiomatic for Ruby strings.)
+function utf16Offsets(cps) {
+  const off = new Int32Array(cps.length + 1);
+  for (let c = 0; c < cps.length; c++) off[c + 1] = off[c] + cps[c].length;
+  return off;
+}
+
 // Returns true if a soft terminator at position i is followed only by
 // more soft terminators and then a hard one (or end of input). Used
 // to decide whether trailing punctuation belongs to the URL or to the
@@ -77,7 +95,7 @@ function followedByHard(cps, i) {
     j++;
   }
   if (j >= cps.length) return true;
-  return terminationKind(cps[j].codePointAt(0)) === TERMINATION_KIND.hard;
+  return terminationKind(cps[j].codePointAt(0)) === -1; // -1 == Hard (default)
 }
 
 // Walks one path/query/fragment segment, honouring bracket pairing
@@ -85,15 +103,29 @@ function followedByHard(cps, i) {
 // codepoint index in `cps` at which the segment ends (i.e. the first
 // codepoint not consumed); the caller passes that index back in as
 // the new `start` for the next segment.
-function skipComponent(cps, start, extraClosers) {
-  const openers = [];
+function skipComponent(cps, start, extraClosers, separators = NO_SEPARATORS, directiveSeparators = null) {
+  let openers = [];
+  let seps = separators;
   for (let i = start; i < cps.length; i++) {
     if (i === start) continue; // the lead-in character (e.g. '/', '?', '#')
     const cp = cps[i].codePointAt(0);
     if (extraClosers.has(cp)) return i;
+    // ':~:' begins a fragment text directive; its own separators take over
+    // and bracket pairing restarts (the directive is a fresh part).
+    if (directiveSeparators && cp === 0x3a && cps[i + 1] === '~' && cps[i + 2] === ':') {
+      openers = [];
+      seps = directiveSeparators;
+      i += 2;
+      continue;
+    }
+    // A separator ends one part of the component. UTS58 pairs brackets per
+    // part, so the open-bracket stack restarts here, but the link continues.
+    if (seps.has(cp)) {
+      openers = [];
+      continue;
+    }
     const k = terminationKind(cp);
-    if (k === -1) continue;
-    if (k === TERMINATION_KIND.hard) return i;
+    if (k === TERMINATION_KIND.include) continue; // part of the link
     if (k === TERMINATION_KIND.soft) {
       if (followedByHard(cps, i)) return i;
     } else if (k === TERMINATION_KIND.close) {
@@ -105,6 +137,8 @@ function skipComponent(cps, start, extraClosers) {
       }
     } else if (k === TERMINATION_KIND.open) {
       openers.push(cp);
+    } else {
+      return i; // -1 (uncovered) == Hard, the UTS58 default: link ends here
     }
   }
   return cps.length;
@@ -121,6 +155,14 @@ function idnToUnicode(host) {
   }
 }
 
+// A label may not start or end with a hyphen (the LDH rule), so a host like
+// -foo.example-.com is not a link at all. PREFIX_RE already rejects empty
+// labels; xn-- A-labels pass, since they neither start nor end with '-'.
+function validLabels(host) {
+  return host.split('.').every((label) =>
+    !label.startsWith('-') && !label.endsWith('-'));
+}
+
 export class Extractor {
   // `isPlausibleHost(host)` decides whether a candidate hostname is
   // real enough to linkify. Most users want to determine this
@@ -135,13 +177,15 @@ export class Extractor {
 
   constructor({ isPlausibleHost = () => true } = {}) {
     this.isPlausibleHost = isPlausibleHost;
-    // Maximum allowed length of the matched text, in input codepoints.
-    // null means no limit, matching the Ruby default.
+    // Maximum allowed length of the matched text, in input codepoints,
+    // since for a human user, the lengths of ☺ and 😀 ought to be the
+    // same. null means no limit.
     this.maxLength = null;
   }
 
   extractUrlsWithIndices(text) {
     const cps = toCodepoints(text);
+    const u16 = utf16Offsets(cps); // codepoint index → UTF-16 offset for output
     const joined = cps.join(''); // identical to text in content, but we
                                  // also need a UTF-16 → codepoint index map.
     // Build a map from UTF-16 offset to codepoint index. cpAt[u] is the
@@ -204,12 +248,20 @@ export class Extractor {
       if (prefixCpLen >= 254) continue;
 
       const hostRaw = pm[0].replace(/。/g, '.');
+      if (!validLabels(hostRaw)) continue;
       const hn = idnToUnicode(hostRaw);
       if (!this.isPlausibleHost(hn)) continue;
 
-      // Walk the optional port, then any number of path segments,
-      // then an optional query, then an optional fragment.
+      // Walk an optional trailing root-label dot, the optional port, then any
+      // number of path segments, then an optional query, then an optional
+      // fragment.
       let i = prefixStart + prefixCpLen;
+      // "example.com." keeps its trailing dot only when a path, query, or
+      // fragment follows; at the end of a sentence the dot is prose (UTS58).
+      if (cps[i] === '.' &&
+          (cps[i + 1] === '/' || cps[i + 1] === '?' || cps[i + 1] === '#')) {
+        i++;
+      }
       const restStr = () => cpSlice(cps, i, Math.min(cps.length, i + 8));
 
       const pmPort = PORT_RE.exec(restStr());
@@ -220,8 +272,8 @@ export class Extractor {
       }
 
       while (cps[i] === '/') i = skipComponent(cps, i, PATH_CLOSERS);
-      if (cps[i] === '?') i = skipComponent(cps, i, QUERY_CLOSERS);
-      if (cps[i] === '#') i = skipComponent(cps, i, FRAGMENT_CLOSERS);
+      if (cps[i] === '?') i = skipComponent(cps, i, QUERY_CLOSERS, QUERY_SEPARATORS);
+      if (cps[i] === '#') i = skipComponent(cps, i, FRAGMENT_CLOSERS, NO_SEPARATORS, DIRECTIVE_SEPARATORS);
 
       const restLen = i - (prefixStart + prefixCpLen);
       // Length of the matched span in the *input*, measured in
@@ -234,7 +286,7 @@ export class Extractor {
       const tail = cpSlice(cps, prefixStart + prefixCpLen, prefixStart + prefixCpLen + restLen);
       result.push({
         url: `${proto}${hn}${tail}`,
-        indices: [start, start + matchLength],
+        indices: [u16[start], u16[start + matchLength]],
       });
     }
     return result;
@@ -251,14 +303,11 @@ export class Extractor {
   // `email` is the bare address ("info@example.com"); `url` is the same
   // thing as a mailto: URL, so the result drops straight into anything
   // that already renders a `url` entity. Both carry the IDN-decoded
-  // domain. `indices` are codepoint offsets, `end` exclusive, and
-  // absorb a leading "mailto:" if the input had one (UTS58 5.2).
-  //
-  // A plain address overlaps the bare domain after the '@' that
-  // extractUrlsWithIndices would find; see extractEntitiesWithIndices
-  // in index.js for the merge that resolves this.
+  // domain. `indices` are UTF-16 offsets, `end` exclusive, and absorb a
+  // leading "mailto:" if the input had one (UTS58 5.2).
   extractEmailAddressesWithIndices(text) {
     const cps = toCodepoints(text);
+    const u16 = utf16Offsets(cps); // codepoint index → UTF-16 offset for output
     const result = [];
     for (let at = 0; at < cps.length; at++) {
       if (cps[at] !== '@') continue;
@@ -289,6 +338,7 @@ export class Extractor {
       if (prefixCpLen >= 254) continue;
 
       const hostRaw = pm[0].replace(/。/g, '.');
+      if (!validLabels(hostRaw)) continue;
       const hn = idnToUnicode(hostRaw);
       if (!this.isPlausibleHost(hn)) continue;
 
@@ -304,7 +354,7 @@ export class Extractor {
       result.push({
         email: `${local}@${hn}`,
         url: `mailto:${local}@${hn}`,
-        indices: [localStart, endPos],
+        indices: [u16[localStart], u16[endPos]],
       });
     }
     return result;

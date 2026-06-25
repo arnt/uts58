@@ -3,9 +3,9 @@ name: JavaScript CI
 on:
   push:
     branches: [main]
-    paths: ['javascript/**']
+    paths: ['javascript/**', 'LinkDetectionTest.txt', 'LinkDetectionKnownFailures.txt']
   pull_request:
-    paths: ['javascript/**']
+    paths: ['javascript/**', 'LinkDetectionTest.txt', 'LinkDetectionKnownFailures.txt']
 
 defaults:
   run:

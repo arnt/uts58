@@ -1,8 +1,10 @@
 # frozen_string_literal: true
 
+require_relative "lib/uts58/version"
+
 Gem::Specification.new do |spec|
   spec.name          = "uts58"
-  spec.version       = "0.2.2"
+  spec.version       = Uts58::VERSION
   spec.authors       = ["Arnt Gulbrandsen"]
   spec.email         = ["arnt@gulbrandsen.priv.no"]
 

@@ -1,0 +1,17 @@
+# Lines from LinkDetectionTest.txt that the extractor does not match.
+#
+# These two are NOT bugs against the normative UTS58 text:
+# - UTS58 declares userinfo out of scope ("its use is deprecated due
+#   to security concerns") and does not define handling for it, so
+#   nothing requires the code to find "http://..." links.
+# - Finding the email address "//john.smith@example.com" is
+#   conformant, but hardly desirable. I don't want to require
+#   either finding or not finding an email address in this.
+# I assume that a future revision of UTS58 will adjust
+# LinkDetectionTest.txt.
+#
+# Format: one marker-stripped input line per entry. Blank lines and lines
+# starting with # are ignored.
+
+http://john.smith@example.com
+http://john.smith@example.com/foo/bar

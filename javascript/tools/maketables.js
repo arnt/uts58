@@ -1,7 +1,7 @@
 #!/usr/bin/env node
-// Translates ../uts58/lib/uts58/constants.rb to src/constants.js,
-// run-length encoding the TERMINATION table so the loaded module isn't
-// 138k lines wide.
+// Translates ../ruby/lib/uts58/constants.rb (OPENERS + the LINK_TERM ranges)
+// to src/constants.js, packing the ranges so the loaded module stays small.
+// Rerun this whenever the Ruby generator refreshes constants.rb.
 
 import { readFileSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
@@ -9,41 +9,43 @@ import { dirname, resolve } from 'node:path';
 
 const here = dirname(fileURLToPath(import.meta.url));
 const rubyPath = process.argv[2] ||
-  resolve(here, '..', '..', 'uts58', 'lib', 'uts58', 'constants.rb');
+  resolve(here, '..', '..', 'ruby', 'lib', 'uts58', 'constants.rb');
 const outPath = resolve(here, '..', 'src', 'constants.js');
 
 const src = readFileSync(rubyPath, 'utf8');
 
 const openers = [];
 const openerRe = /^\s*0x([0-9A-Fa-f]+)\s*=>\s*0x([0-9A-Fa-f]+),/;
-const termRe = /^\s*0x([0-9A-Fa-f]+)\s*=>\s*:(\w+)\s*,/;
+// LINK_TERM rows look like: [0x0021, 0x0022, :soft], # comment
+const termRe = /^\s*\[0x([0-9A-Fa-f]+),\s*0x([0-9A-Fa-f]+),\s*:(\w+)\]/;
 
 let inOpeners = false, inTerm = false;
-const term = []; // array of {cp, kind}
+const parsed = []; // array of [start, end, kind]
 for (const line of src.split('\n')) {
-  if (line.includes('OPENERS = {')) { inOpeners = true; continue; }
-  if (line.includes('TERMINATION = {')) { inOpeners = false; inTerm = true; continue; }
+  if (line.includes('OPENERS = {')) { inOpeners = true; inTerm = false; continue; }
+  if (line.includes('LINK_TERM = [')) { inOpeners = false; inTerm = true; continue; }
   if (inOpeners) {
     const m = openerRe.exec(line);
     if (m) openers.push([parseInt(m[1], 16), parseInt(m[2], 16)]);
   } else if (inTerm) {
     const m = termRe.exec(line);
-    if (m) term.push({ cp: parseInt(m[1], 16), kind: m[2] });
+    if (m) parsed.push([parseInt(m[1], 16), parseInt(m[2], 16), m[3]]);
   }
 }
 
-// run-length encode: array of [start, end, kindCode]
-const kindCodes = { hard: 0, soft: 1, open: 2, close: 3 };
-term.sort((a, b) => a.cp - b.cp);
+// The kinds are the non-Hard Link_Term values; an uncovered code point is
+// Hard (handled at runtime by terminationKind returning -1). Pack into 2 bits.
+const kindCodes = { include: 0, soft: 1, open: 2, close: 3 };
+parsed.sort((a, b) => a[0] - b[0]);
 const ranges = [];
-for (const { cp, kind } of term) {
+for (const [start, end, kind] of parsed) {
   const code = kindCodes[kind];
   if (code === undefined) throw new Error(`unknown kind ${kind}`);
   const last = ranges[ranges.length - 1];
-  if (last && last[2] === code && last[1] === cp - 1) {
-    last[1] = cp;
+  if (last && last[2] === code && last[1] === start - 1) {
+    last[1] = end;
   } else {
-    ranges.push([cp, cp, code]);
+    ranges.push([start, end, code]);
   }
 }
 
@@ -73,9 +75,9 @@ export const OPENERS = new Map([
 ${openerEntries}
 ]);
 
-const KIND_HARD = 0, KIND_SOFT = 1, KIND_OPEN = 2, KIND_CLOSE = 3;
+const KIND_INCLUDE = 0, KIND_SOFT = 1, KIND_OPEN = 2, KIND_CLOSE = 3;
 export const TERMINATION_KIND = Object.freeze({
-  hard: KIND_HARD, soft: KIND_SOFT, open: KIND_OPEN, close: KIND_CLOSE,
+  include: KIND_INCLUDE, soft: KIND_SOFT, open: KIND_OPEN, close: KIND_CLOSE,
 });
 
 const _startsB64 = ${JSON.stringify(b64(starts))};
@@ -89,10 +91,10 @@ function _decode(b64) {
 const STARTS = _decode(_startsB64);
 const PACKED = _decode(_packedB64);
 
-// Returns one of KIND_HARD/SOFT/OPEN/CLOSE for cp, or -1 if cp has no
-// entry in the table. Binary search over a flat run-length encoding;
-// the table is generated from constants.rb so the answers match the
-// Ruby reference implementation.
+// Returns one of KIND_INCLUDE/SOFT/OPEN/CLOSE for cp, or -1 when cp has no
+// entry — which means Hard, the UTS58 @missing default. Binary search over a
+// flat run-length encoding; generated from constants.rb so the answers match
+// the Ruby reference implementation.
 export function terminationKind(cp) {
   let lo = 0, hi = STARTS.length - 1;
   while (lo <= hi) {

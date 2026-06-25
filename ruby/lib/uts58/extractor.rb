@@ -23,8 +23,10 @@ module Uts58
   # vs. themselves a less common fourth, the list goes on.)
   class Extractor
     PATH_CLOSERS = [35, 47, 63]
-    QUERY_CLOSERS = [35] # how about &?
+    QUERY_CLOSERS = [35]
     FRAGMENT_CLOSERS = []
+    QUERY_SEPARATORS = [0x3d, 0x26]           # = and & begin a new query part
+    DIRECTIVE_SEPARATORS = [0x2c, 0x3d, 0x26] # , = and & within a :~: directive
 
     # Maximum allowed length of the matched text, in input codepoints.
     # Matches whose input span exceeds this are dropped from the result
@@ -62,7 +64,12 @@ module Uts58
     # accepted for twitter-text compatibility and currently ignored.
     def extract_urls_with_indices(text, options = {})
       result = []
-      text.to_enum(:scan,/(?<![-\p{Alnum}\p{M}.\/])(?=\p{Alnum}[-\p{L}\p{N}\p{M}\u00DF\u03C2\u06FD\u06FE\u0F0B\u3007]*[\.:。])/).map{Regexp.last_match}.each do |match|
+      # The '@' in the negative lookbehind is non-obvious part: UTS58
+      # has no userinfo, so a host that immediately follows an '@'
+      # cannot be a link to https://. An email address (or a
+      # bluesky/mastodon one) is possible. The rest of the set just
+      # keeps a trigger from firing inside a word or path.
+      text.to_enum(:scan,/(?<![-\p{Alnum}\p{M}.\/@])(?=\p{Alnum}[-\p{L}\p{N}\p{M}\u00DF\u03C2\u06FD\u06FE\u0F0B\u3007]*[\.:。])/).map{Regexp.last_match}.each do |match|
         # get rid of a leading protocol. We also tolerate letter/mark/number
         # characters between the trigger and the scheme, so that input
         # like "テストhttp://example.com" attaches the scheme correctly:
@@ -83,7 +90,9 @@ module Uts58
         # this is a somewhat sloppy match, with a few false positives.
         prefix = /^([-\p{L}\p{N}\p{M}\u00DF\u03C2\u06FD\u06FE\u0F0B\u3007]+[\.。]){1,4}[-\p{L}\p{N}\p{M}]+(?![-\p{L}\p{N}\p{M}])/.match(s)
         if prefix && prefix[0].length < 254
-          hn = SimpleIDN.to_unicode(prefix.match(0).gsub(/。/, "."))
+          host_raw = prefix.match(0).gsub(/。/, ".")
+          next unless valid_labels?(host_raw)
+          hn = SimpleIDN.to_unicode(host_raw)
           begin
             about = PublicSuffix.parse(hn,
                                        ignore_private: true,
@@ -93,6 +102,11 @@ module Uts58
               # the question is how much. there may be a trailing
               # port, then a path, then a query, finally a fragment.
               rest = prefix.post_match
+              # "example.com." keeps its trailing dot only when a path, query,
+              # or fragment follows; at the end of a sentence it's prose (UTS58).
+              if rest[0] == "." && ["/", "?", "#"].include?(rest[1])
+                rest = rest[1..]
+              end
               # a port number must be 1..65535
               port = /^:(\d+)/.match(rest)
               if port
@@ -103,8 +117,8 @@ module Uts58
               # path
               rest = skip_component(rest, PATH_CLOSERS) while rest[0] == "/"
               # query
-              rest = skip_component(rest, QUERY_CLOSERS) if rest[0] == '?'
-              rest = skip_component(rest, FRAGMENT_CLOSERS) if rest[0] == "#"
+              rest = skip_component(rest, QUERY_CLOSERS, QUERY_SEPARATORS) if rest[0] == '?'
+              rest = skip_component(rest, FRAGMENT_CLOSERS, [], DIRECTIVE_SEPARATORS) if rest[0] == "#"
               rest_length = prefix.post_match.length - rest.length
               match_length = match.post_match.length - rest.length - scheme_offset
               next if @max_length && match_length > @max_length
@@ -147,19 +161,12 @@ module Uts58
     # +indices+ are codepoint offsets, +end+ exclusive; they cover a
     # leading +mailto:+ in the input if there was one, per UTS58 5.2.
     #
-    # A plain address such as "info@example.com" overlaps the bare domain
-    # "example.com" that #extract_urls_with_indices would find after the
-    # <tt>@</tt>. If you'd rather *not* turn addresses into +mailto:+ links, you
-    # have two choices, with different outcomes for
-    # "blah info@example.com blah":
-    #
-    # 1. Extract both kinds, merge with #remove_overlapping_entities, then
-    #    drop the survivors that have an +:email+ key. The address wins the
-    #    overlap, so dropping it leaves that span unlinked — "info@example.com"
-    #    becomes plain text.
-    # 2. Extract only URLs (skip this method). The URL scan still sees the
-    #    domain after the <tt>@</tt>, so the same input links to
-    #    +https://example.com+.
+    # #extract_urls_with_indices does not match a host that immediately
+    # follows an <tt>@</tt> — UTS58 has no userinfo, so "info@example.com"
+    # never yields a bare +example.com+ link. To get such an address as plain
+    # text rather than a +mailto:+ link, extract both kinds, merge with
+    # #remove_overlapping_entities, then drop the survivors that have an
+    # +:email+ key; that leaves the span unlinked.
     #
     # Returns an empty array if +text+ contains no addresses. +options+ is
     # accepted for twitter-text compatibility and currently ignored.
@@ -175,7 +182,9 @@ module Uts58
         s = match.post_match
         prefix = /^([-\p{L}\p{N}\p{M}ßς۽۾་〇]+[\.。]){1,4}[-\p{L}\p{N}\p{M}]+(?![-\p{L}\p{N}\p{M}])/.match(s)
         next unless prefix && prefix[0].length < 254
-        hn = SimpleIDN.to_unicode(prefix.match(0).gsub(/。/, "."))
+        host_raw = prefix.match(0).gsub(/。/, ".")
+        next unless valid_labels?(host_raw)
+        hn = SimpleIDN.to_unicode(host_raw)
         begin
           about = PublicSuffix.parse(hn, ignore_private: true, default_rule: nil)
           next unless about && about.tld != "invalid"
@@ -229,30 +238,66 @@ module Uts58
 
     private
 
-    def followed_by_hard(codepoints, i)
-      j = i;
-      while(j < codepoints.length &&
-            Constants::TERMINATION.include?(codepoints[j]) &&
-            Constants::TERMINATION[codepoints[j]] == :soft)
-        j = j + 1
-      end
-      j >= codepoints.length ||
-        (Constants::TERMINATION.include?(codepoints[j]) &&
-         Constants::TERMINATION[codepoints[j]] == :hard)
+    # A label may not start or end with a hyphen (the LDH rule), so a host
+    # like -foo.example-.com is not a link at all. The prefix regex already
+    # rejects empty labels; xn-- A-labels pass, since they neither start nor
+    # end with '-'.
+    def valid_labels?(host)
+      host.split(".").none? { |label| label.start_with?("-") || label.end_with?("-") }
     end
 
-    def skip_component(string, extra_closers)
+    # UTS58 Link_Term for a code point: :include, :soft, :open, :close, or nil
+    # for Hard — the @missing default for anything not in Constants::LINK_TERM.
+    # Binary search over the sorted ranges.
+    def link_term(cp)
+      ranges = Constants::LINK_TERM
+      lo = 0
+      hi = ranges.length - 1
+      while lo <= hi
+        mid = (lo + hi) / 2
+        start, finish, value = ranges[mid]
+        if cp < start
+          hi = mid - 1
+        elsif cp > finish
+          lo = mid + 1
+        else
+          return value
+        end
+      end
+      nil
+    end
+
+    def followed_by_hard(codepoints, i)
+      j = i
+      j += 1 while j < codepoints.length && link_term(codepoints[j]) == :soft
+      j >= codepoints.length || link_term(codepoints[j]).nil?
+    end
+
+    def skip_component(string, extra_closers, separators = [], directive_separators = nil)
       openers = []
+      seps = separators
       codepoints = string.codepoints
-      codepoints.each.with_index do |cp, i|
+      i = 0
+      while i < codepoints.length
+        cp = codepoints[i]
         if i == 0
           # it's the lead-in character
         elsif extra_closers.include? cp
           return string[i..]
-        elsif Constants::TERMINATION.include?(cp)
-          case Constants::TERMINATION[cp]
-          when :hard
-            return string[i..]
+        elsif directive_separators && cp == 0x3a && codepoints[i + 1] == 0x7e && codepoints[i + 2] == 0x3a
+          # ":~:" begins a fragment text directive; its own separators take
+          # over and bracket pairing restarts (the directive is a fresh part).
+          openers = []
+          seps = directive_separators
+          i += 2
+        elsif seps.include?(cp)
+          # A separator ends one part of the component. UTS58 pairs brackets
+          # per part, so the stack restarts here, but the link continues.
+          openers = []
+        else
+          case link_term(cp)
+          when :include
+            # part of the link; keep scanning
           when :soft
             return string[i..] if followed_by_hard(codepoints, i)
           when :close
@@ -263,10 +308,11 @@ module Uts58
             end
           when :open
             openers << cp
+          else # nil => Hard, the UTS58 default: the link ends here
+            return string[i..]
           end
-        else
-          # it's a letter or something like that
         end
+        i += 1
       end
       # Input ran out before any terminator did: the whole component
       # belongs to the URL, so there is nothing left over.

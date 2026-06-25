@@ -36,7 +36,8 @@
   "license": "BSD-2-Clause",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/arnt/uts58.git"
+    "url": "git+https://github.com/arnt/uts58.git",
+    "directory": "javascript"
   },
   "bugs": {
     "url": "https://github.com/arnt/uts58/issues"

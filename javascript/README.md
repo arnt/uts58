@@ -2,7 +2,7 @@
 
 A JavaScript implementation of [UTS58](https://www.unicode.org/reports/tr58/),
 the Unicode spec for finding links in running text. Given a chunk of text, it
-returns the URLs in it along with their codepoint offsets. This is a port of
+returns the URLs in it along with their UTF-16 offsets. This is a port of
 the [Ruby `uts58` gem](https://github.com/arnt/uts58); the test suite is the
 same, with very minor differences.
 
@@ -62,13 +62,14 @@ extractUrls('xn-----ctdbabcfhu9c2b9l1acccr4c.xn--mgbah1a3hjkrd')[0];
 the input wasn't readable to anyone, no matter what languages they can read.)
 
 Trailing punctuation, balanced brackets, ports, paths, queries and
-fragments are handled per the spec. Indices in the output are
-codepoint offsets, not UTF-16 code unit offsets. `text.slice(start,
-end)` won't give back the matched substring if the text contains
-characters outside the BMP. Convert the codepoint indices using
-`Array.from(text)` if you need to slice. `example.com/🐪/#camel` is a
-good test case: the emoji is a single codepoint but two UTF-16 code
-units, so every offset after it shifts by one.
+fragments are handled per the spec. Indices in the output are UTF-16
+code unit offsets — the units used by `String.prototype.slice`,
+`String#length`, the DOM, and text editors — so `text.slice(start,
+end)` returns the matched substring directly, even across characters
+outside the BMP. (The Ruby gem reports codepoint offsets instead, which
+are idiomatic for Ruby strings; `example.com/🐪/#camel` is a good test
+of the difference, since the emoji is one codepoint but two UTF-16
+units.)
 
 ## Email addresses
 
@@ -158,31 +159,20 @@ A few sharp edges worth covering in your own tests if you're swapping
 `twitter-text` out, or just using this from scratch.
 
 **The `href` and the visible text are not the same string.** For
-`see example.com here`, `indices` covers the 11 codepoints of
-`example.com`, but `url` is the 19-codepoint `https://example.com`.
+`see example.com here`, the `indices` span
+`example.com`, but `url` is the longer `https://example.com`.
 Use `url` for the `href` attribute, slice the original text by
 `indices` for the visible content. A test that compares
 `text.slice(start, end) === url` will fail on every scheme-less input,
-and on every IDN where A-labels got decoded.
-
-**Indices are codepoints.** `text.slice(start, end)` works only as long
-as the text stays inside the BMP. `https://example.com/🐪/#camel` is
-the test case I'd recommend for anyone wrapping matches in `<a>`: the
-camel is one codepoint but two UTF-16 units, so the end index is
-exactly one short of what `String.prototype.slice` expects. Pay
-particular attention to where the link ends — off-by-one here will
-chop the last character of the fragment or include the first
-character of whatever follows. Convert via `Array.from(text).slice(…)`
-or precompute UTF-16 offsets if you'd rather slice once.
+and on every IDN where A-labels were decoded.
 
 **No options object.** There is no `extractUrlsWithoutProtocol: false`
 switch. If you want only scheme-bearing URLs, filter on the matched
 substring (not on `url`, which always carries `https://`):
 
 ```js
-const cps = Array.from(text);
 extractUrlsWithIndices(text)
-  .filter((r) => /^https?:\/\//i.test(cps.slice(...r.indices).join('')));
+  .filter((r) => /^https?:\/\//i.test(text.slice(...r.indices)));
 ```
 
 **No `autoLink`.** This package extracts; it doesn't render. There's
@@ -196,19 +186,26 @@ them, so this package doesn't either. If you need them, run
 merge with `Extractor#removeOverlappingEntities`.
 
 **Overlap resolution is start-wins, not longest-wins.** Worth a test
-when you merge entities from multiple extractors.  `ask
+when you merge entities from multiple extractors. `ask
 alice@example.com/02074960909 for details` shows why. The raw
 extractors find both email `alice@example.com` at `[4, 21]` and url
 `https://example.com/02074960909` at `[10, 33]`. Start-wins keeps
-`alice@example.com`, which is what a reader would call right.
+`alice@example.com`, which is what a reader would call right, at least
+one who reads 02074960909 as a phone number.
 Longest-wins would keep the longer `https://example.com/02074960909`.
 
 **`maxLength` measures the matched input span.** Not the returned URL.
 A 12-codepoint cap keeps `blogspot.com` (12) and drops
-`https://example.com` (19 input codepoints), even though the input
-span and `url` happen to be identical there. The asymmetry shows up
-the other way for `example.com` (11 input cp, 19 in `url`) — the cap
-of 12 keeps it.
+`https://example.com`, even though the input span and `url` happen to
+be identical there. The asymmetry shows up the other way for
+`example.com` (11 input cp, 19 in `url`) — the cap of 12 keeps it.
+
+Even though most of the API counts in terms of UTF-16, like the String
+class, maxLength uses codepoints. The reason is that most of the API
+is for software developers, but maxLength is for end-users, and
+codepoints are closer to what end-users see. "☺" and "😀" are both one
+codepoint long. (This isn't quite perfect: "é" may be either one or
+two codepoints long and "🇳🇴" is two. Life is hard.)
 
 **`mailto:` is absorbed into `indices`.** Per UTS58 5.2, the input
 `mailto:abcd@example.com` returns an entity whose span covers the
@@ -226,12 +223,18 @@ starts at the local-part, mailto inputs will surprise it.
 
 ## Regenerating the generated tables
 
-`src/constants.js` is generated from the Ruby reference's `constants.rb`
-(which is in turn generated from the UTS58 data files). To refresh:
+`src/constants.js` (the link-termination and bracket tables) is packed from
+the Ruby reference's `constants.rb`:
 
 ```sh
-npm run maketables -- /path/to/uts58/lib/uts58/constants.rb
+npm run maketables
 ```
+
+That reads `../ruby/lib/uts58/constants.rb` by default; pass a path to point
+it elsewhere. `constants.rb` is itself generated on the Ruby side, where
+`tools/maketables.rb` downloads the UTS58 data files (`LinkTerm.txt` and
+`LinkBracket.txt`) straight from unicode.org — so the source of truth is
+Unicode's published data, not a copy kept in this repo.
 
 `src/tlds-iana.js` and `src/suffixes-psl.js` are the public-suffix tables.
 With no arguments they're fetched from their canonical sources

@@ -3,9 +3,9 @@ name: Ruby CI
 on:
   push:
     branches: [main]
-    paths: ['ruby/**']
+    paths: ['ruby/**', 'LinkDetectionTest.txt', 'LinkDetectionKnownFailures.txt']
   pull_request:
-    paths: ['ruby/**']
+    paths: ['ruby/**', 'LinkDetectionTest.txt', 'LinkDetectionKnownFailures.txt']
 
 defaults:
   run:

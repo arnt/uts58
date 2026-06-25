@@ -82,6 +82,21 @@ test('decodes A-labels in the resulting URL', () => {
   assert.equal(x[0].url, 'https://تجربة-القبول-الشامل.موريتانيا');
 });
 
+// Some indices below differ from the Ruby equivalents, because Ruby counts
+// codepoints and Javascript UTF-16 thingies.
+test('reports UTF-16 indices that slice cleanly across astral characters', () => {
+  const text = '🐪 example.com/🐪/#camel here';
+  const [e] = extract(text);
+  assert.equal(text.slice(...e.indices), 'example.com/🐪/#camel');
+  assert.equal(e.url, 'https://example.com/🐪/#camel');
+});
+
+test('reports UTF-16 indices for email addresses too', () => {
+  const text = '🐪 gøril@example.com';
+  const [e] = extractEmailAddressesWithIndices(text);
+  assert.equal(text.slice(...e.indices), 'gøril@example.com');
+});
+
 test('extracts a Cyrillic .укр host from surrounding words', () => {
   const x = extract('тест тест.укр тест');
   assert.equal(x.length, 1);
@@ -253,17 +268,15 @@ test('preserves http:// when the input has it', () => {
 // the reader to npmjs.com even if the user clicks the middle 'b' in
 // bbc.
 
-// We extract the two as separate links, destroying the deception. if
-// the user looks in the direction of bbc and clicks, the browser goes
-// to the bbc, fi the user looks in the direction of npnjs, the
-// browser goes to npmjs.
-test('splits a userinfo-style phishing link into two real ones', () => {
+// UTS58 has no userinfo, so the host after the '@' (npmjs.com) is not a
+// link at all; we keep only https://www.bbc.co.uk. The deception is still
+// defused — the one href goes to the bbc, and npmjs.com is inert text.
+test('does not linkify the host after a userinfo-style @', () => {
   const x = extractUrlsWithIndices(
     'mumble  https://www.bbc.co.uk@npmjs.com/something stumble',
   );
   assert.deepEqual(x, [
     { url: 'https://www.bbc.co.uk', indices: [8, 29] },
-    { url: 'https://npmjs.com/something', indices: [30, 49] },
   ]);
 });
 

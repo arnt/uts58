@@ -6,7 +6,8 @@
 ruby/.bundle/
 ruby/Gemfile.lock
 ruby/vendor/
-ruby/*.gem
+*.gem
+*.tgz
 ruby/LICENSE
 javascript/node_modules/
 javascript/LICENSE

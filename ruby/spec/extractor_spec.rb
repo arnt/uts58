@@ -79,6 +79,16 @@ RSpec.describe "Extraction" do
     expect(x.first[:url]).to eq("https://تجربة-القبول-الشامل.موريتانيا")
   end
 
+  # An astral character (🐪, outside the BMP) inside the path must be kept,
+  # and the codepoint indices must still slice it back out.
+  it "keeps an astral character in the path, with matching indices" do
+    text = "🐪 example.com/🐪/#camel here"
+    x = extract_urls(text)
+    expect(x.first[:url]).to eq("https://example.com/🐪/#camel")
+    s, e = x.first[:indices]
+    expect(text[s...e]).to eq("example.com/🐪/#camel")
+  end
+
   it "extracts a Cyrillic .укр host from surrounding words" do
     x = extract_urls("тест тест.укр тест")
     expect(x.count).to eq(1)
@@ -297,6 +307,17 @@ RSpec.describe "Extraction" do
     x = extract_urls("foo http://example.com bar")
     expect(x.count).to eq(1)
     expect(x.first[:url]).to eq("http://example.com")
+  end
+
+  # A browser reads https://www.bbc.co.uk@npmjs.com/x as host
+  # npmjs.com with userinfo www.bbc.co.uk. UTS58 has no userinfo, so
+  # the host after the '@' is not a link at all; only www.bbc.co.uk
+  # is, which also defuses the phishing — the one href goes to the
+  # bbc.
+  it "does not linkify the host after a userinfo-style @" do
+    x = extract_urls("mumble  https://www.bbc.co.uk@npmjs.com/something stumble")
+    expect(x.map { |r| r[:url] }).to eq(["https://www.bbc.co.uk"])
+    expect(x.first[:indices]).to eq([8, 29])
   end
 
   it "rejects port 0" do
