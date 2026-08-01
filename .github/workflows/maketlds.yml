@@ -29,7 +29,9 @@ jobs:
         working-directory: javascript
 
       # Ruby has no committed table; its PSL comes from the public_suffix
-      # gem at runtime, so the only thing to refresh is the lock pin.
+      # gem at runtime. Nothing to refresh in the repository, then — the
+      # update below exists only so the staleness check sees the newest
+      # release. Gemfile.lock is gitignored, as it should be for a gem.
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: "3.4"
@@ -40,15 +42,15 @@ jobs:
 
       - name: Commit refreshed data
         run: |
-          paths="javascript/src/tlds-iana.js javascript/src/suffixes-psl.js ruby/Gemfile.lock"
+          paths="javascript/src/tlds-iana.js javascript/src/suffixes-psl.js"
           if git diff --quiet -- $paths; then
-            echo "IANA, PSL and public_suffix all unchanged; nothing to commit."
+            echo "IANA and PSL both unchanged; nothing to commit."
             exit 0
           fi
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
           git add $paths
-          git commit -m "Refresh IANA/PSL tables and public_suffix gem"
+          git commit -m "Refresh IANA/PSL tables"
           git push
 
       # The bump above only reaches the newest public_suffix *release*, which
