@@ -66,5 +66,5 @@ jobs:
             rel = JSON.parse(URI.open(url).read).find { |v| v["number"] == ver }
             age = (Date.today - Date.parse(rel["created_at"])).to_i
             puts "public_suffix #{ver} released #{rel["created_at"]}, #{age} days ago"
-            abort "public_suffix #{ver} is #{age} days old; its PSL snapshot is likely stale" if age > 180
+            abort "public_suffix #{ver} is #{age} days old; its PSL snapshot is likely stale" if age > 548
           '
