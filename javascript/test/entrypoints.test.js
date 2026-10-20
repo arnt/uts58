@@ -1,5 +1,6 @@
 import { test, describe } from 'node:test';
 import { strict as assert } from 'node:assert';
+import { execFileSync } from 'node:child_process';
 
 import { extractUrls as pslUrls, Extractor as PslExtractor } from '../src/index.js';
 import { extractUrls as ianaUrls, Extractor as IanaExtractor } from '../src/index-iana.js';
@@ -47,5 +48,17 @@ describe('uts58/core', () => {
     assert.equal(check('bbc.co.uk'), true);
     assert.equal(check('co.uk'), true);   // co is in front of uk
     assert.equal(check('uk'), false);     // nothing in front
+  });
+});
+
+describe('browser compatibility', () => {
+  test('every entry point loads without Buffer', () => {
+    for (const entry of ['index.js', 'index-iana.js', 'core.js']) {
+      const url = new URL(`../src/${entry}`, import.meta.url).href;
+      execFileSync(process.execPath, [
+        '--input-type=module', '-e',
+        `delete globalThis.Buffer; await import(${JSON.stringify(url)});`,
+      ]);
+    }
   });
 });

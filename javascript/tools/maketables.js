@@ -84,8 +84,10 @@ const _startsB64 = ${JSON.stringify(b64(starts))};
 const _packedB64 = ${JSON.stringify(b64(packed))};
 
 function _decode(b64) {
-  const bin = Buffer.from(b64, 'base64');
-  return new Uint32Array(bin.buffer, bin.byteOffset, bin.byteLength / 4);
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new Uint32Array(bytes.buffer);
 }
 
 const STARTS = _decode(_startsB64);
