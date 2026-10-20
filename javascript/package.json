@@ -1,6 +1,6 @@
 {
   "name": "@agulbra/uts58",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "description": "UTS #58 web-link extraction for JavaScript.",
   "type": "module",
   "main": "src/index.js",
