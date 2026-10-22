@@ -15,6 +15,7 @@ npm install @agulbra/uts58
 ```
 
 ESM-only; Node 18+ (uses Unicode property escapes and lookbehinds).
+Starting with 0.2.4 this ought to work on browsers too.
 
 ## Usage
 
@@ -33,10 +34,12 @@ it was written to provide what Mastodon-style consumers need. The two
 top-level functions above also strip partly overlapping matches via
 `Extractor#removeOverlappingEntities`: candidates are sorted by start
 offset and anything that begins inside an earlier survivor's span is
-dropped. Length doesn't enter into it — the earlier-starting candidate
-wins even if a later one is longer. Import `Extractor` directly if you'd
-rather merge with other extractors (mentions, hashtags, …) and resolve
-overlap across all of them yourself.
+dropped. Length doesn't enter into it; the earlier-starting candidate
+wins even if a later one is longer.
+
+Import `Extractor` directly if you'd rather merge with other
+extractors (mentions, hashtags, …) and resolve overlap across all of
+them yourself.
 
 Unlike `twitter-text`, the functions take no options object. What counts as
 a link is fixed by [UTS58](https://www.unicode.org/reports/tr58/); there is
@@ -63,13 +66,13 @@ the input wasn't readable to anyone, no matter what languages they can read.)
 
 Trailing punctuation, balanced brackets, ports, paths, queries and
 fragments are handled per the spec. Indices in the output are UTF-16
-code unit offsets — the units used by `String.prototype.slice`,
-`String#length`, the DOM, and text editors — so `text.slice(start,
+code unit offsets (the units used by `String.prototype.slice`,
+`String#length`, the DOM, and text editors) so `text.slice(start,
 end)` returns the matched substring directly, even across characters
-outside the BMP. (The Ruby gem reports codepoint offsets instead, which
-are idiomatic for Ruby strings; `example.com/🐪/#camel` is a good test
-of the difference, since the emoji is one codepoint but two UTF-16
-units.)
+outside the BMP. (This is different from the Ruby version. Ruby tends
+to use codepoint offsets instead, and the Ruby gem follows that
+convention.  `example.com/🐪/#camel` is a good test of the difference,
+since the emoji is one codepoint but two UTF-16 units.)
 
 ## Email addresses
 
@@ -95,8 +98,8 @@ domain is IDN-decoded the same way as in `extractUrls`, and a leading
 
 A plain address overlaps the bare domain that `extractUrls` would find
 after the `@`. `extractEntitiesWithIndices` runs both extractors,
-sorts by start offset, and removes overlaps — the earlier-starting
-email wins over the domain inside it:
+sorts by start offset, and removes overlaps. The email address starts
+earlier and wins over the domain inside it:
 
 ```js
 extractEntities('mail arnt@grå.org or see blogspot.com');
@@ -107,8 +110,7 @@ extractEntities('mail arnt@grå.org or see blogspot.com');
 
 To decide whether `something.example` is a plausible link, the extractor
 checks the host against a public-suffix table. Which table is a bundle-time
-choice — pick the entry point that fits, and your bundler ships only that
-table:
+choice:
 
 | import | table | gzipped |
 | --- | --- | --- |
@@ -116,25 +118,24 @@ table:
 | `@agulbra/uts58/iana` | IANA root-zone TLDs | ~5 KB |
 | `@agulbra/uts58/core` | none — you supply the check | 0 KB |
 
-All three expose the same API. The two tables are about the same size and
-agree on nearly every host — the difference is how strict the check is for
-the handful of TLDs that only register at the second level. `@agulbra/uts58/iana`
-asks only "is the rightmost label a real TLD": enough to tell `blogspot.jp`
-from `blogspot.exe` and to reject typos like `example.cmo`, but it treats a
-bare `foo.za` as plausible. The default `@agulbra/uts58` carries the PSL, which knows
+All three expose the same API. The two tables are about the same size
+and agree on nearly every host. The difference is how strict the check
+is for the handful of TLDs that only register at the second
+level. `@agulbra/uts58/iana` asks only "is the rightmost label a real
+TLD": enough to tell `blogspot.jp` from `blogspot.exe` and to reject
+typos like `example.cmo`, but it treats a bare `foo.za` as
+plausible. The default `@agulbra/uts58` carries the PSL, which knows
 South Africa registers under `co.za` / `org.za` and so rejects a bare
 `foo.za`. If that distinction doesn't matter to you, the tables are
 interchangeable.
 
 Neither reproduces the PSL's wildcard/exception rules: the question here is
 "could this be a link", not "where is the exact registrable boundary", so a
-flat membership test is all it does. The PSL table is folded accordingly —
-`!` exceptions dropped, `*.foo` collapsed to `foo`, and any suffix made
-redundant by a shorter one removed (with `no` present, `møre-og-romsdal.no`
-is dropped). That folding is what keeps it down to ~5 KB.
+flat membership test is all it does. The PSL table is folded accordingly,
+that's why the gzip table is only a few bytes bigger than the IANA list.
 
-`@agulbra/uts58/core` bundles no table at all. Bring your own check — over a suffix
-set, or wrapping a library you already depend on:
+`@agulbra/uts58/core` bundles no table at all, and you insert your own
+check like this::
 
 ```js
 import { Extractor } from '@agulbra/uts58/core';
@@ -155,8 +156,7 @@ itself depends only on `punycode`.)
 
 ## Suggested test cases and notable behaviour
 
-A few sharp edges worth covering in your own tests if you're swapping
-`twitter-text` out, or just using this from scratch.
+There are a few sharp edges that you probably should cover in your own tests.
 
 **The `href` and the visible text are not the same string.** For
 `see example.com here`, the `indices` span
@@ -177,28 +177,29 @@ extractUrlsWithIndices(text)
 
 **No `autoLink`.** This package extracts; it doesn't render. There's
 no equivalent of `twitter-text`'s `autoLink`, `autoLinkUrlsCustom`,
-`htmlEscape`, etc. — building HTML is the caller's job, which keeps
-escaping decisions where they belong.
+`htmlEscape`, etc. — building HTML is the caller's job. This code
+does not decide on escaping.
 
 **No mentions, hashtags, cashtags, replies.** UTS58 doesn't define
 them, so this package doesn't either. If you need them, run
 `twitter-text` (or another extractor) for those alongside this one and
 merge with `Extractor#removeOverlappingEntities`.
 
-**Overlap resolution is start-wins, not longest-wins.** Worth a test
+**Overlap resolution is start-wins, not longest-wins.** This needs a test
 when you merge entities from multiple extractors. `ask
 alice@example.com/02074960909 for details` shows why. The raw
 extractors find both email `alice@example.com` at `[4, 21]` and url
 `https://example.com/02074960909` at `[10, 33]`. Start-wins keeps
-`alice@example.com`, which is what a reader would call right, at least
-one who reads 02074960909 as a phone number.
+`alice@example.com`, which is what a human reader probably considers
+right, at least one who reads 02074960909 as a phone number.
 Longest-wins would keep the longer `https://example.com/02074960909`.
 
 **`maxLength` measures the matched input span.** Not the returned URL.
-A 12-codepoint cap keeps `blogspot.com` (12) and drops
+IF you pass 12-codepoint cap, the code keeps `blogspot.com` (12) and drops
 `https://example.com`, even though the input span and `url` happen to
 be identical there. The asymmetry shows up the other way for
-`example.com` (11 input cp, 19 in `url`) — the cap of 12 keeps it.
+`example.com` (11 input cp, 19 in `url`), where a cap of 12 lets the code
+detect a link.
 
 Even though most of the API counts in terms of UTF-16, like the String
 class, maxLength uses codepoints. The reason is that most of the API
@@ -233,13 +234,13 @@ npm run maketables
 That reads `../ruby/lib/uts58/constants.rb` by default; pass a path to point
 it elsewhere. `constants.rb` is itself generated on the Ruby side, where
 `tools/maketables.rb` downloads the UTS58 data files (`LinkTerm.txt` and
-`LinkBracket.txt`) straight from unicode.org — so the source of truth is
-Unicode's published data, not a copy kept in this repo.
+`LinkBracket.txt`) straight from unicode.org, so the source of truth is
+Unicode's published data.
 
 `src/tlds-iana.js` and `src/suffixes-psl.js` are the public-suffix tables.
 With no arguments they're fetched from their canonical sources
 ([IANA](https://data.iana.org/TLD/tlds-alpha-by-domain.txt),
-[PSL](https://publicsuffix.org/list/public_suffix_list.dat)); pass local
+[PSL](https://publicsuffix.org/list/public_suffix_list.dat)). Pass local
 paths to regenerate offline:
 
 ```sh

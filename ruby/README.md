@@ -5,8 +5,9 @@ the Unicode spec for finding links in running text. Given a chunk of text,
 it returns the URLs and email addresses in it along with their character
 offsets.
 
-Both halves of UTS58 are covered: **web links** and **email addresses**.
-The two are detected independently and can be combined.
+Both halves of UTS58 are covered: web links and email addresses.
+The two are detected independently and can be combined. You can also
+combine them with detection of your own, e.g. usernames on your service.
 
 Tested extensively on relevant OSes: [![CI](https://github.com/arnt/uts58/actions/workflows/ruby.yml/badge.svg)](https://github.com/arnt/uts58/actions/workflows/ruby.yml)
 
@@ -59,7 +60,7 @@ are handled per the spec.
 ## Email addresses
 
 Email detection mirrors the URL methods. Each result carries the address
-twice — as a bare `:email` and as a `mailto:` `:url` — so it drops straight
+twice (as a bare `:email` and as a `mailto:` `:url`) so it drops straight
 into anything that already renders a `:url` entity:
 
 ```ruby
@@ -79,7 +80,7 @@ are recognised; the domain is IDN-decoded just like a URL host. A leading
 ## Combined extraction
 
 `extract_entities_with_indices` runs both detectors, sorts by offset, and
-strips overlaps — mirroring `Twitter::TwitterText::Extractor#extract_entities_with_indices`.
+strips overlaps, very similar to `Twitter::TwitterText::Extractor#extract_entities_with_indices`.
 The result is a mixed list of `:url` and email (`:email` + `:url`) hashes:
 
 ```ruby
@@ -100,7 +101,7 @@ you have two options, with different results for `contact info@example.com for p
 1. **Extract both, then drop emails.** Take `extract_entities_with_indices`
    (already overlap-stripped) and reject the hashes that have an `:email`
    key. The address wins the overlap, so dropping it leaves that span
-   *unlinked* — `info@example.com` stays plain text. Choose this if an
+   *unlinked* — `contact info@example.com` stays plain text. Choose this if an
    address shouldn't silently become a website link.
 2. **Extract only URLs.** Call `extract_urls_with_indices` and skip email
    detection entirely. The URL scan finds domain after the `@`, so the
@@ -110,7 +111,10 @@ you have two options, with different results for `contact info@example.com for p
 ## What's not here
 
 - **Link validation.** Recognised URLs are not fetched, normalised beyond
-  IDN decoding, or their hostnames checked in the DNS. If you need this,
+  IDN decoding, or their hostnames checked in the DNS. There is
+  no attempt at checking for possible attacks (`Мышκин.рф` and
+  `Мышкин.рф` are both detected, note the Greek kappa in the middle of
+  the prince's name). If you need this,
   send me mail.
 
 ## Roadmap
@@ -118,7 +122,7 @@ you have two options, with different results for `contact info@example.com for p
 My immediate need is UTS58 conformant link detection suitable for
 public web pages. If you need something more, I rather think that an
 item can be added to this roadmap, so long as the description in the
-rdoc remains short and simple. Send mail to arnt@gulbrandsen.priv.no.
+rdoc remains short and simple. Send me mail.
 
 ## License
 
