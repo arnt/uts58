@@ -325,6 +325,13 @@ test('treats surrounding square brackets as terminators', () => {
   assert.equal(x[0].url, 'https://example.com/path');
 });
 
+test('finds a domain after CRLF line breaks', () => {
+  const x = extract('Text.\r\n\r\nexample.com');
+  assert.equal(x.length, 1);
+  assert.equal(x[0].url, 'https://example.com');
+  assert.deepEqual(x[0].indices, [9, 20]);
+});
+
 describe('Extractor#extractUrls', () => {
   test('returns only the URL strings', () => {
     assert.deepEqual(
@@ -420,6 +427,10 @@ describe('Extractor#extractEmailAddressesWithIndices', () => {
     const x = extractEmails('Contact አርበርቶ.አርበርቶ@example.com');
     assert.equal(x.length, 1);
     assert.equal(x[0].email, 'አርበርቶ.አርበርቶ@example.com');
+  });
+
+  test('does not join a local-part to a domain on the next line', () => {
+    assert.equal(extractEmails('Write to arnt@\r\ngrå.org').length, 0);
   });
 
   test('accepts the Greek example from UTS58 5.1', () => {

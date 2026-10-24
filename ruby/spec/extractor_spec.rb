@@ -365,6 +365,13 @@ RSpec.describe "Extraction" do
     expect(x.first[:url]).to eq("https://example.com/path")
   end
 
+  it "finds a domain after CRLF line breaks" do
+    x = extract_urls("Text.\r\n\r\nexample.com")
+    expect(x.count).to eq(1)
+    expect(x.first[:url]).to eq("https://example.com")
+    expect(x.first[:indices]).to eq([9, 20])
+  end
+
   describe "Extractor#extract_urls" do
     it "returns only the URL strings" do
       expect(@extractor.extract_urls("a blogspot.com b example.com c"))
@@ -458,6 +465,10 @@ RSpec.describe "Extraction" do
       x = extract_emails("Contact አርበርቶ.አርበርቶ@example.com")
       expect(x.count).to eq(1)
       expect(x.first[:email]).to eq("አርበርቶ.አርበርቶ@example.com")
+    end
+
+    it "does not join a local-part to a domain on the next line" do
+      expect(extract_emails("Write to arnt@\r\ngrå.org").count).to eq(0)
     end
 
     it "accepts the Greek example from UTS58 5.1" do

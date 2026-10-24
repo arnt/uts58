@@ -77,7 +77,7 @@ module Uts58
         # nothing precedes it, and the actual link begins three
         # codepoints later.
         s = match.post_match
-        scheme_match = /^([\p{Han}\p{Hiragana}\p{Katakana}\p{Hangul}\p{Thai}\p{Lao}\p{Khmer}\p{Myanmar}]*?)(https?:\/\/)/i.match(s)
+        scheme_match = /\A([\p{Han}\p{Hiragana}\p{Katakana}\p{Hangul}\p{Thai}\p{Lao}\p{Khmer}\p{Myanmar}]*?)(https?:\/\/)/i.match(s)
         if scheme_match
           scheme_offset = scheme_match[1].length
           proto = scheme_match[2]
@@ -88,7 +88,7 @@ module Uts58
         end
         # look for the prefix that might be a hostname or an IDN.
         # this is a somewhat sloppy match, with a few false positives.
-        prefix = /^([-\p{L}\p{N}\p{M}\u00DF\u03C2\u06FD\u06FE\u0F0B\u3007]+[\.。]){1,4}[-\p{L}\p{N}\p{M}]+(?![-\p{L}\p{N}\p{M}])/.match(s)
+        prefix = /\A([-\p{L}\p{N}\p{M}\u00DF\u03C2\u06FD\u06FE\u0F0B\u3007]+[\.。]){1,4}[-\p{L}\p{N}\p{M}]+(?![-\p{L}\p{N}\p{M}])/.match(s)
         if prefix && prefix[0].length < 254
           host_raw = prefix.match(0).gsub(/。/, ".")
           next unless valid_labels?(host_raw)
@@ -108,7 +108,7 @@ module Uts58
                 rest = rest[1..]
               end
               # a port number must be 1..65535
-              port = /^:(\d+)/.match(rest)
+              port = /\A:(\d+)/.match(rest)
               if port
                 n = port[1].to_i
                 next if n < 1 || n > 65535
@@ -180,7 +180,7 @@ module Uts58
         local = lp_match[0]
         next if local.start_with?('.') || local.end_with?('.') || local.include?('..')
         s = match.post_match
-        prefix = /^([-\p{L}\p{N}\p{M}ßς۽۾་〇]+[\.。]){1,4}[-\p{L}\p{N}\p{M}]+(?![-\p{L}\p{N}\p{M}])/.match(s)
+        prefix = /\A([-\p{L}\p{N}\p{M}ßς۽۾་〇]+[\.。]){1,4}[-\p{L}\p{N}\p{M}]+(?![-\p{L}\p{N}\p{M}])/.match(s)
         next unless prefix && prefix[0].length < 254
         host_raw = prefix.match(0).gsub(/。/, ".")
         next unless valid_labels?(host_raw)
