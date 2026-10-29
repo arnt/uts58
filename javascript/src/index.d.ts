@@ -1,6 +1,6 @@
 // Type declarations for uts58 (the default and /iana entries; /core has its
 // own core.d.ts). Hand-written to match the sources; keep them in sync by
-// hand (there's no build step).
+// hand.
 
 /** A `[start, end)` span in UTF-16 code units — the same units as
  * `String.prototype.slice`, `String#length`, the DOM, and editors — so
@@ -29,10 +29,16 @@ export interface EmailEntity {
  * the presence of `email` to tell them apart. */
 export type Entity = UrlEntity | EmailEntity;
 
+/** Per-call options, named as in twitter-text. */
+export interface ExtractUrlsOptions {
+  /** `false` finds only links that start with `http://` or `https://`.
+   * Defaults to `true`, as in the UTS58 specification. */
+  extractUrlsWithoutProtocol?: boolean;
+}
+
 export interface ExtractorOptions {
-  /** Decides whether a candidate hostname is real enough to linkify — the
-   * public-suffix check. The default and /iana entries inject one; on /core
-   * it defaults to accepting any host that clears the shape rules. */
+  /** Decides whether a candidate hostname looks real enough to linkify.
+   * This uses either the public suffix list, the IANA list or nothing. */
   isPlausibleHost?: (host: string) => boolean;
 }
 
@@ -44,15 +50,15 @@ export declare class Extractor {
   constructor(options?: ExtractorOptions);
 
   /** Maximum length of a matched span, in input codepoints, so that
-   *  "☺" "😀" are equal in length. `null` (the * default) means no
+   *  "☺" "😀" are equal in length. `null` (the default) means no
    *  limit. Candidates longer than this are dropped. */
 
   maxLength: number | null;
 
   isPlausibleHost: (host: string) => boolean;
 
-  extractUrlsWithIndices(text: string): UrlEntity[];
-  extractUrls(text: string): string[];
+  extractUrlsWithIndices(text: string, options?: ExtractUrlsOptions): UrlEntity[];
+  extractUrls(text: string, options?: ExtractUrlsOptions): string[];
   extractEmailAddressesWithIndices(text: string): EmailEntity[];
   extractEmailAddresses(text: string): string[];
 
@@ -61,13 +67,13 @@ export declare class Extractor {
   removeOverlappingEntities<T extends { indices: Indices }>(entities: T[]): T[];
 }
 
-export declare function extractUrlsWithIndices(text: string): UrlEntity[];
-export declare function extractUrls(text: string): string[];
+export declare function extractUrlsWithIndices(text: string, options?: ExtractUrlsOptions): UrlEntity[];
+export declare function extractUrls(text: string, options?: ExtractUrlsOptions): string[];
 export declare function extractEmailAddressesWithIndices(text: string): EmailEntity[];
 export declare function extractEmailAddresses(text: string): string[];
 
 /** Both URLs and email addresses, sorted by start offset with overlaps
  * removed — an email beats the bare domain that sits inside it after the
  * `@`. Email addresses appear in their `mailto:` form under `url`. */
-export declare function extractEntitiesWithIndices(text: string): Entity[];
-export declare function extractEntities(text: string): string[];
+export declare function extractEntitiesWithIndices(text: string, options?: ExtractUrlsOptions): Entity[];
+export declare function extractEntities(text: string, options?: ExtractUrlsOptions): string[];

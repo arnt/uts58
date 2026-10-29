@@ -43,6 +43,10 @@ Uts58.extract_urls_with_indices("blogspot.com is still a thing")
 # => [{ url: "https://blogspot.com", indices: [0, 12] }]
 ```
 
+As in twitter-text, you can pass `extract_url_without_protocol: false` to
+find only links that start with `http://` or `https://`. The default is
+`true`, matching UTS58.
+
 IDNs are decoded to use UTF8 in the output, for better readability:
 
 ```ruby

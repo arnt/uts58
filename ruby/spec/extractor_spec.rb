@@ -422,6 +422,41 @@ RSpec.describe "Extraction" do
     end
   end
 
+  describe "extract_url_without_protocol" do
+    text = "see grå.org, http://example.com/ and https://例子.中国"
+
+    it "defaults to true" do
+      expect(@extractor.extract_urls(text))
+        .to eq(["https://grå.org", "http://example.com/", "https://例子.中国"])
+    end
+
+    it "keeps only links with a scheme when false" do
+      x = @extractor.extract_urls_with_indices(
+        text, extract_url_without_protocol: false)
+      expect(x.map { |r| r[:url] })
+        .to eq(["http://example.com/", "https://例子.中国"])
+      expect(text[x[0][:indices][0]...x[0][:indices][1]])
+        .to eq("http://example.com/")
+    end
+
+    it "still finds a scheme directly after non-Latin letters when false" do
+      expect(@extractor.extract_urls("テストhttp://example.com",
+                                     extract_url_without_protocol: false))
+        .to eq(["http://example.com"])
+    end
+
+    it "is passed on by the module-level wrappers" do
+      off = { extract_url_without_protocol: false }
+      expect(Uts58.extract_urls(text, off))
+        .to eq(["http://example.com/", "https://例子.中国"])
+      expect(Uts58.extract_urls_with_indices(text, off).count).to eq(2)
+      expect(Uts58.extract_entities("mail arnt@grå.org or see blogspot.com", off))
+        .to eq(["mailto:arnt@grå.org"])
+      expect(Uts58.extract_entities_with_indices("see blogspot.com", off))
+        .to eq([])
+    end
+  end
+
   describe "Extractor#remove_overlapping_entities" do
     it "drops later entries that start inside an earlier entry's span" do
       entities = [

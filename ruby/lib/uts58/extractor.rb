@@ -60,9 +60,14 @@ module Uts58
     # very common example is input that like "foo example.com bar",
     # where the URL will be https://example.com, including "https://".
     #
-    # Returns an empty array if +text+ contains no links. +options+ is
-    # accepted for twitter-text compatibility and currently ignored.
+    # Returns an empty array if +text+ contains no links.
+    #
+    # +options+ follows twitter-text: pass
+    # <tt>extract_url_without_protocol: false</tt> to find only links
+    # that start with +http://+ or +https://+. UTS58 doesn't require a
+    # scheme, so the default is +true+.
     def extract_urls_with_indices(text, options = {})
+      without_protocol = options.fetch(:extract_url_without_protocol, true)
       result = []
       # The '@' in the negative lookbehind is non-obvious part: UTS58
       # has no userinfo, so a host that immediately follows an '@'
@@ -83,6 +88,7 @@ module Uts58
           proto = scheme_match[2]
           s = scheme_match.post_match
         else
+          next unless without_protocol
           scheme_offset = 0
           proto = "https://"
         end

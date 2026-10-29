@@ -5,11 +5,12 @@
 // earlier-starting one.
 
 export function makeApi(shared) {
-  const extractUrlsWithIndices = (text) =>
-    shared.removeOverlappingEntities(shared.extractUrlsWithIndices(text));
+  const extractUrlsWithIndices = (text, options = {}) =>
+    shared.removeOverlappingEntities(
+      shared.extractUrlsWithIndices(text, options));
 
-  const extractUrls = (text) =>
-    extractUrlsWithIndices(text).map((r) => r.url);
+  const extractUrls = (text, options = {}) =>
+    extractUrlsWithIndices(text, options).map((r) => r.url);
 
   const extractEmailAddressesWithIndices = (text) =>
     shared.removeOverlappingEntities(shared.extractEmailAddressesWithIndices(text));
@@ -17,14 +18,14 @@ export function makeApi(shared) {
   const extractEmailAddresses = (text) =>
     extractEmailAddressesWithIndices(text).map((r) => r.email);
 
-  const extractEntitiesWithIndices = (text) =>
+  const extractEntitiesWithIndices = (text, options = {}) =>
     shared.removeOverlappingEntities([
-      ...shared.extractUrlsWithIndices(text),
+      ...shared.extractUrlsWithIndices(text, options),
       ...shared.extractEmailAddressesWithIndices(text),
     ]);
 
-  const extractEntities = (text) =>
-    extractEntitiesWithIndices(text).map((e) => e.url);
+  const extractEntities = (text, options = {}) =>
+    extractEntitiesWithIndices(text, options).map((e) => e.url);
 
   return {
     extractUrlsWithIndices,

@@ -41,11 +41,6 @@ Import `Extractor` directly if you'd rather merge with other
 extractors (mentions, hashtags, …) and resolve overlap across all of
 them yourself.
 
-Unlike `twitter-text`, the functions take no options object. What counts as
-a link is fixed by [UTS58](https://www.unicode.org/reports/tr58/); there is
-no `extractUrlsWithoutProtocol`-style switch, because the spec already says
-how scheme-less input is handled (see below).
-
 Input without a scheme is recognised, and `https://` is prepended in the
 returned `url`:
 
@@ -53,6 +48,10 @@ returned `url`:
 extractUrlsWithIndices('blogspot.com is still a thing');
 // => [{ url: 'https://blogspot.com', indices: [0, 12] }]
 ```
+
+As in `twitter-text`, you can pass `{ extractUrlsWithoutProtocol: false }`
+to find only links that start with `http://` or `https://`. The default is
+`true`, matching UTS58.
 
 IDNs are decoded to use UTF-8 in the output, for better readability:
 
@@ -165,15 +164,6 @@ Use `url` for the `href` attribute, slice the original text by
 `indices` for the visible content. A test that compares
 `text.slice(start, end) === url` will fail on every scheme-less input,
 and on every IDN where A-labels were decoded.
-
-**No options object.** There is no `extractUrlsWithoutProtocol: false`
-switch. If you want only scheme-bearing URLs, filter on the matched
-substring (not on `url`, which always carries `https://`):
-
-```js
-extractUrlsWithIndices(text)
-  .filter((r) => /^https?:\/\//i.test(text.slice(...r.indices)));
-```
 
 **No `autoLink`.** This package extracts; it doesn't render. There's
 no equivalent of `twitter-text`'s `autoLink`, `autoLinkUrlsCustom`,

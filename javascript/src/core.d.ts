@@ -1,10 +1,13 @@
 // Types for 'uts58/core' — the extractor with no public-suffix table.
 
-import type { UrlEntity, EmailEntity, Entity } from './index.js';
+import type {
+  UrlEntity, EmailEntity, Entity, ExtractUrlsOptions,
+} from './index.js';
 
 export {
   Extractor,
   type ExtractorOptions,
+  type ExtractUrlsOptions,
   type UrlEntity,
   type EmailEntity,
   type Entity,
@@ -13,12 +16,12 @@ export {
 
 /** The six convenience wrappers bound to one extractor. */
 export interface Api {
-  extractUrlsWithIndices(text: string): UrlEntity[];
-  extractUrls(text: string): string[];
+  extractUrlsWithIndices(text: string, options?: ExtractUrlsOptions): UrlEntity[];
+  extractUrls(text: string, options?: ExtractUrlsOptions): string[];
   extractEmailAddressesWithIndices(text: string): EmailEntity[];
   extractEmailAddresses(text: string): string[];
-  extractEntitiesWithIndices(text: string): Entity[];
-  extractEntities(text: string): string[];
+  extractEntitiesWithIndices(text: string, options?: ExtractUrlsOptions): Entity[];
+  extractEntities(text: string, options?: ExtractUrlsOptions): string[];
 }
 
 /** Build a host-plausibility predicate over a flat set of public suffixes

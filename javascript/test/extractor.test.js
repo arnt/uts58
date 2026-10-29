@@ -382,6 +382,47 @@ describe('Extractor#maxLength', () => {
   });
 });
 
+describe('extractUrlsWithoutProtocol', () => {
+  const text = 'see grå.org, http://example.com/ and https://例子.中国';
+
+  test('defaults to true', () => {
+    assert.deepEqual(extractor.extractUrls(text), [
+      'https://grå.org',
+      'http://example.com/',
+      'https://例子.中国',
+    ]);
+  });
+
+  test('false keeps only links with a scheme', () => {
+    const x = extractor.extractUrlsWithIndices(text,
+      { extractUrlsWithoutProtocol: false });
+    assert.deepEqual(x.map((r) => r.url),
+      ['http://example.com/', 'https://例子.中国']);
+    assert.equal(text.slice(...x[0].indices), 'http://example.com/');
+  });
+
+  test('false still finds a scheme directly after non-Latin letters', () => {
+    assert.deepEqual(
+      extractor.extractUrls('テストhttp://example.com',
+        { extractUrlsWithoutProtocol: false }),
+      ['http://example.com'],
+    );
+  });
+
+  test('is passed on by the module-level wrappers', () => {
+    const off = { extractUrlsWithoutProtocol: false };
+    assert.deepEqual(extractUrls(text, off),
+      ['http://example.com/', 'https://例子.中国']);
+    assert.equal(extractUrlsWithIndices(text, off).length, 2);
+    assert.deepEqual(
+      extractEntities('mail arnt@grå.org or see blogspot.com', off),
+      ['mailto:arnt@grå.org'],
+    );
+    assert.equal(
+      extractEntitiesWithIndices('see blogspot.com', off).length, 0);
+  });
+});
+
 describe('Extractor#removeOverlappingEntities', () => {
   test('drops later entries that start inside an earlier span', () => {
     const entities = [

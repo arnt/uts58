@@ -183,7 +183,9 @@ export class Extractor {
     this.maxLength = null;
   }
 
-  extractUrlsWithIndices(text) {
+  // As in twitter-text, `extractUrlsWithoutProtocol: false` ignores links
+  // that don't start with http:// or https://.
+  extractUrlsWithIndices(text, { extractUrlsWithoutProtocol = true } = {}) {
     const cps = toCodepoints(text);
     const u16 = utf16Offsets(cps); // codepoint index → UTF-16 offset for output
     const joined = cps.join(''); // identical to text in content, but we
@@ -237,6 +239,8 @@ export class Extractor {
         schemeOffset = toCodepoints(sm[1]).length;
         proto = sm[2];
         prefixStart = postStart + schemeOffset + toCodepoints(sm[2]).length;
+      } else if (!extractUrlsWithoutProtocol) {
+        continue;
       }
 
       // Prefix: the candidate hostname.
@@ -292,8 +296,8 @@ export class Extractor {
     return result;
   }
 
-  extractUrls(text) {
-    return this.extractUrlsWithIndices(text).map((r) => r.url);
+  extractUrls(text, options = {}) {
+    return this.extractUrlsWithIndices(text, options).map((r) => r.url);
   }
 
   // Returns every email address found in `text` as a list of objects:
@@ -314,9 +318,8 @@ export class Extractor {
 
       // Walk left over the run of local-part characters. We stop one past
       // the RFC 5321 limit and bail: a run longer than that means this isn't
-      // an address, not that its last 64 characters are one. Scanning
-      // (rather than slicing the whole prefix and matching anchored) is what
-      // keeps '@'-dense input from going O(n²).
+      // an address, not that its last 64 characters are one. Scanning is used
+      // to avoid O(n²) time for '@'-dense input.
       let localStart = at;
       while (localStart > 0 &&
              LP_CHAR.test(cps[localStart - 1]) &&
